@@ -293,3 +293,27 @@ async def test_oversized_pages_are_not_rendered(
         "unreadable",
         "page is too large to render (14000 x 14000 pt)",
     )
+
+
+async def test_fake_replies_resolve_document_placeholders(tmp_path: Path) -> None:
+    fake = FakeVendor(
+        _scenario(
+            tmp_path,
+            [
+                {
+                    "role": "case.check_item",
+                    "reply": {
+                        "data": {"results": [{"doc_id": "{{doc:passport-scan.png}}", "n": 1}]}
+                    },
+                }
+            ],
+        )
+    )
+    request = LlmRequest(
+        role=Role.CASE_CHECK_ITEM,
+        messages=[
+            Message.user("=== document 01ULIDXYZ (passport-scan.png) | page 1 ===\nPassport")
+        ],
+    )
+    result = await fake.complete(RoleConfig(vendor="fake", model="m", max_tokens=10), request)
+    assert result.data == {"results": [{"doc_id": "01ULIDXYZ", "n": 1}]}

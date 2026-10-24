@@ -7,7 +7,7 @@ page files themselves and pass ids, counts and validated facts.
 from datetime import datetime
 from typing import Literal
 
-from pydantic import BaseModel, Field
+from pydantic import Field
 
 from cairn.core.cases.models import (
     CallRecord,
@@ -17,9 +17,14 @@ from cairn.core.cases.models import (
     ItemReply,
     ModelConflict,
 )
+from cairn.core.model import Model
 
 
-class CheckInput(BaseModel):
+def check_workflow_id(check_id: str) -> str:
+    return f"check-{check_id}"
+
+
+class CheckInput(Model):
     check_id: str
     case_id: str
     kind: CheckKind
@@ -37,7 +42,7 @@ Step = Literal[
 ]
 
 
-class CheckState(BaseModel):
+class CheckState(Model):
     """`get_state` query result: progress while the check runs."""
 
     check_id: str
@@ -51,13 +56,13 @@ class CheckState(BaseModel):
     error: str | None = None
 
 
-class SpecItem(BaseModel):
+class SpecItem(Model):
     id: str
     requirement: str
     verify: str
 
 
-class CheckSpec(BaseModel):
+class CheckSpec(Model):
     """What `load_check_spec` resolved: loaded by code, never chosen by the model (D-13)."""
 
     doc_ids: list[str]  # every document in the case, manifest order
@@ -66,14 +71,14 @@ class CheckSpec(BaseModel):
     items: list[SpecItem] = Field(default_factory=list[SpecItem])
 
 
-class IngestInput(BaseModel):
+class IngestInput(Model):
     case_id: str
     doc_id: str
     min_page_chars: int
     max_pages_per_case: int
 
 
-class IngestOutcome(BaseModel):
+class IngestOutcome(Model):
     doc_id: str
     status: Literal["ingested", "failed"]
     pages: int
@@ -81,53 +86,53 @@ class IngestOutcome(BaseModel):
     calls: list[CallRecord] = Field(default_factory=list[CallRecord])
 
 
-class MarkFailedInput(BaseModel):
+class MarkFailedInput(Model):
     case_id: str
     doc_id: str
     error: str
 
 
-class ExtractInput(BaseModel):
+class ExtractInput(Model):
     case_id: str
     doc_id: str
     map_budget: int
 
 
-class ExtractOutcome(BaseModel):
+class ExtractOutcome(Model):
     doc_id: str
     facts: list[Fact]  # ids are local to the document (f1…); the workflow renumbers them
     dropped: list[Dropped]
     calls: list[CallRecord] = Field(default_factory=list[CallRecord])
 
 
-class ProposeInput(BaseModel):
+class ProposeInput(Model):
     case_id: str
     facts: list[Fact]
     case_context_budget: int
 
 
-class ProposeOutcome(BaseModel):
+class ProposeOutcome(Model):
     proposals: list[ModelConflict]
     calls: list[CallRecord] = Field(default_factory=list[CallRecord])
 
 
-class ItemsInput(BaseModel):
+class ItemsInput(Model):
     case_id: str
     checklist_skill: str
     item_ids: list[str]
 
 
-class ItemsOutcome(BaseModel):
+class ItemsOutcome(Model):
     replies: list[ItemReply]
     calls: list[CallRecord] = Field(default_factory=list[CallRecord])
 
 
-class MeasureInput(BaseModel):
+class MeasureInput(Model):
     case_id: str
     budget: int
 
 
-class FinishInput(BaseModel):
+class FinishInput(Model):
     check: CheckInput
     started: datetime
     finished: datetime
@@ -142,7 +147,7 @@ class FinishInput(BaseModel):
     error: str | None = None  # set: the check failed as a whole; no findings are written
 
 
-class CheckSummary(BaseModel):
+class CheckSummary(Model):
     check_id: str
     status: Literal["completed", "failed"]
     error: str | None = None

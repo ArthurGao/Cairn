@@ -256,7 +256,7 @@
             "finding": "Passport bio page present and legible",
             "citations": [
               {
-                "doc_id": "passport-scan",
+                "doc_id": "{{doc:passport-scan.png}}",
                 "page": 1,
                 "quote": "Passport no: XS0000001"
               }
@@ -268,7 +268,7 @@
             "finding": "Alex Sample on the passport and the application form",
             "citations": [
               {
-                "doc_id": "application-form",
+                "doc_id": "{{doc:application-form.pdf}}",
                 "page": 1,
                 "quote": "Family name: Sample Given names: Alex"
               }
@@ -280,7 +280,7 @@
             "finding": "No signed job offer or employment agreement; the employer letter confirms employment but is not an offer",
             "citations": [
               {
-                "doc_id": "employer-letter",
+                "doc_id": "{{doc:employer-letter.pdf}}",
                 "page": 1,
                 "quote": "This is a permanent full-time position."
               }
@@ -292,7 +292,7 @@
             "finding": "The application form is signed and dated",
             "citations": [
               {
-                "doc_id": "application-form",
+                "doc_id": "{{doc:application-form.pdf}}",
                 "page": 2,
                 "quote": "Applicant signature: [signed] Date: 20 October 2026"
               }
@@ -323,7 +323,7 @@
             "finding": "The cover letter cites Appendix 7 (police certificate), which is not in the case",
             "citations": [
               {
-                "doc_id": "cover-letter",
+                "doc_id": "{{doc:cover-letter.pdf}}",
                 "page": 1,
                 "quote": "Appendix 7 police certificate."
               }
@@ -341,7 +341,7 @@
             "finding": "The questionnaire lists a police certificate to follow; it has not arrived",
             "citations": [
               {
-                "doc_id": "questionnaire",
+                "doc_id": "{{doc:questionnaire.pdf}}",
                 "page": 2,
                 "quote": "Documents to follow: police certificate"
               }

@@ -17,6 +17,7 @@ dependencies = [
     "pillow>=13.0.0",
     "anthropic>=2.3.0",
     "openai>=3.37.0",
+    "python-multipart>=0.0.32",
 ]
 
 [project.scripts]

@@ -3,6 +3,7 @@ from collections.abc import AsyncIterator
 from pathlib import Path
 
 import pytest
+from temporalio.contrib.pydantic import pydantic_data_converter
 from temporalio.testing import WorkflowEnvironment
 
 from cairn.settings import env_names
@@ -34,7 +35,7 @@ def cases_dir(tmp_path: Path) -> Path:
 @pytest.fixture(scope="session")
 async def temporal_env() -> AsyncIterator[WorkflowEnvironment]:
     """A real local Temporal dev server (first run downloads the binary)."""
-    env = await WorkflowEnvironment.start_local()
+    env = await WorkflowEnvironment.start_local(data_converter=pydantic_data_converter)
     try:
         yield env
     finally:

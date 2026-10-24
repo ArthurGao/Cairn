@@ -47,6 +47,7 @@ from cairn.core.cases.spec import (
     SpecInvalid,
     load_categories,
     load_checklist,
+    require_checklist,
 )
 from cairn.core.formats import parse_skill
 from cairn.core.tokens import estimate_tokens
@@ -200,9 +201,7 @@ class CaseActivities:
             if check.kind == "consistency":
                 self._categories()
             else:
-                if not check.checklist_skill:
-                    raise _fatal("a pre-submission check needs a checklist skill", "spec_invalid")
-                checklist = self._checklist(check.checklist_skill)
+                checklist = require_checklist(self.skills, check.checklist_skill)
                 spec.checklist_version = checklist.version
                 spec.items = [
                     SpecItem(id=i.id, requirement=i.requirement, verify=i.verify)

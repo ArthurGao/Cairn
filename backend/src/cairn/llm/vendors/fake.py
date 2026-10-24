@@ -6,8 +6,9 @@ used up. A call no entry expects fails loudly — the fake is never lenient.
 """
 
 import json
+import re
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
 from pydantic import BaseModel, Field
 
@@ -33,6 +34,22 @@ class FakeEntry(BaseModel):
     repeat: bool = False
 
 
+_DOC_HEADER = re.compile(r"=== document (?P<id>\S+) \((?P<name>[^)]+)\)")
+_PLACEHOLDER = re.compile(r"\{\{doc:(?P<name>[^}]+)\}\}")
+
+
+def _resolve(value: Any, doc_ids: dict[str, str]) -> Any:
+    """Replace `{{doc:<filename>}}` with the id the request's page headers give that file,
+    as a real model reads ids from those headers (ids are assigned at upload)."""
+    if isinstance(value, str):
+        return _PLACEHOLDER.sub(lambda m: doc_ids.get(m["name"], m[0]), value)
+    if isinstance(value, list):
+        return [_resolve(v, doc_ids) for v in cast(list[Any], value)]
+    if isinstance(value, dict):
+        return {k: _resolve(v, doc_ids) for k, v in cast(dict[str, Any], value).items()}
+    return value
+
+
 class FakeVendor:
     name = "fake"
 
@@ -46,6 +63,7 @@ class FakeVendor:
     async def complete(self, config: RoleConfig, request: LlmRequest) -> LlmResult:
         self.calls.append(request)
         haystack = request.system + "\n" + "\n".join(m.text() for m in request.messages)
+        doc_ids = {m["name"]: m["id"] for m in _DOC_HEADER.finditer(haystack)}
         for n, entry in enumerate(self.entries):
             if n in self.used or entry.role != request.role.value or entry.match not in haystack:
                 continue
@@ -59,7 +77,7 @@ class FakeVendor:
                 vendor=self.name,
                 model=config.model,
                 text=reply.text,
-                data=reply.data,
+                data=_resolve(reply.data, doc_ids) if reply.data is not None else None,
                 tool_calls=reply.tool_calls,
                 stop_reason=reply.stop_reason,
                 tokens_in=reply.tokens_in,

@@ -41,5 +41,6 @@ test:
 	cd backend && uv run pytest
 	cd frontend && npm run test
 
+# Real stack on the standard ports with the fake vendor; refuses if a port is taken.
 e2e-full:
-	@echo "No full e2e suite yet: it starts in M4 (design §15). Nothing was run."
+	./scripts/e2e_full.sh

@@ -129,6 +129,16 @@ def load_checklist(skill_dir: Path) -> Checklist:
     return parse_checklist((skill_dir / CHECKLIST).read_text(encoding="utf-8"))
 
 
+def require_checklist(skills_root: Path, skill: str | None) -> Checklist:
+    """The checklist a pre-submission check runs on, or a clear error (API and workflow alike)."""
+    if not skill or not skill.startswith(PRESUBMISSION_PREFIX) or "/" in skill:
+        raise Invalid("choose a pre-submission checklist", code="checklist_required")
+    try:
+        return load_checklist(skills_root / skill)
+    except OSError as exc:
+        raise SpecInvalid(f"{skill} has no readable checklist: {exc}") from exc
+
+
 def list_checklists(skills_root: Path) -> list[ChecklistInfo]:
     """Every `presubmission-*` skill under `skills_root`, valid or not, sorted by name."""
     infos: list[ChecklistInfo] = []

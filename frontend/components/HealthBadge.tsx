@@ -6,10 +6,10 @@ import { API_URL, api } from "@/lib/api/client";
 import { type HealthResult, type HealthView, healthView, toHealthResult } from "@/lib/health";
 
 const TONE: Record<HealthView["state"], string> = {
-  loading: "border-neutral-300 text-neutral-600",
-  ok: "border-green-700 text-green-800",
-  unhealthy: "border-red-700 text-red-800",
-  unreachable: "border-red-700 text-red-800",
+  loading: "border-rule text-muted",
+  ok: "border-good text-good",
+  unhealthy: "border-bad text-bad",
+  unreachable: "border-bad text-bad",
 };
 
 async function fetchHealth(): Promise<HealthResult> {
@@ -36,12 +36,12 @@ export function HealthBadge() {
         {view.label}
       </p>
       {view.detail && (
-        <p data-testid="health-detail" className="max-w-md text-right text-xs text-neutral-700">
+        <p data-testid="health-detail" className="max-w-md text-right text-xs text-muted">
           {view.detail}
         </p>
       )}
       {view.synthetic && (
-        <p data-testid="data-class-banner" className="text-xs font-semibold text-neutral-900">
+        <p data-testid="data-class-banner" className="text-xs font-semibold uppercase tracking-wide">
           Synthetic data only
         </p>
       )}

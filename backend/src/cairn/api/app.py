@@ -16,7 +16,9 @@ from starlette.exceptions import HTTPException
 from temporalio.client import Client
 
 from cairn import temporal
+from cairn.api.routes import cases
 from cairn.api.schemas import ErrorBody, ErrorResponse, HealthOk
+from cairn.api.services import Services
 from cairn.core.home import case_store_problem, home_problem
 from cairn.errors import CairnError
 from cairn.settings import Settings
@@ -31,18 +33,32 @@ class TemporalState:
 
     def __init__(self, settings: Settings):
         self.settings = settings
-        self.client: Client | None = None
+        self.client_: Client | None = None
+
+    async def client(self) -> Client:
+        """A connected client, or 503 `temporal_unavailable` (never an empty answer, D-08)."""
+        if self.client_ is None:
+            try:
+                async with asyncio.timeout(TEMPORAL_TIMEOUT_S):
+                    self.client_ = await temporal.connect(self.settings)
+            except Exception as exc:
+                raise CairnError(
+                    f"Temporal is unreachable at {self.settings.temporal_address}",
+                    code="temporal_unavailable",
+                    status=503,
+                ) from exc
+        return self.client_
 
     async def probe(self) -> str | None:
         """Return None when Temporal answers, else the reason it did not."""
         try:
+            client = await self.client()
             async with asyncio.timeout(TEMPORAL_TIMEOUT_S):
-                if self.client is None:
-                    self.client = await temporal.connect(self.settings)
-                await self.client.service_client.check_health()
+                await client.service_client.check_health()
         except Exception as exc:
-            self.client = None
-            reason = str(exc) or type(exc).__name__
+            self.client_ = None
+            cause = exc.__cause__ if isinstance(exc, CairnError) and exc.__cause__ else exc
+            reason = str(cause) or type(cause).__name__
             return f"unreachable at {self.settings.temporal_address} ({reason})"
         return None
 
@@ -57,6 +73,8 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         yield
 
     app = FastAPI(title="Cairn API", version="0.1.0", lifespan=lifespan)
+    app.state.services = Services(settings=settings, temporal=state)
+    app.include_router(cases.router)
     app.add_middleware(
         CORSMiddleware,
         allow_origins=[settings.cors_origin],

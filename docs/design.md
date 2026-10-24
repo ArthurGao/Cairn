@@ -869,9 +869,10 @@ The gate is config, not code paths: the role layer is unchanged when `azure` is 
 | `GET /api/cases/{case_id}` | manifest: documents with status and per-page method |
 | `POST /api/cases/{case_id}/documents` (multipart, one or more files) | store originals, add to manifest as `pending`; 415 `unsupported_type`, 413 `case_too_large` |
 | `GET /api/cases/{case_id}/documents/{doc_id}/original` | the uploaded file |
-| `GET /api/cases/{case_id}/documents/{doc_id}/pages/{n}` | page text + frontmatter (§4.8); a PNG render with `?render=1` |
+| `GET /api/cases/{case_id}/documents/{doc_id}/pages/{n}` | page text + frontmatter (§4.8) |
+| `GET /api/cases/{case_id}/documents/{doc_id}/pages/{n}/render` | a server-side PNG of the page (≤ 25 MP; 422 `not_renderable` otherwise) |
 | `GET /api/checklists` | `presubmission-*` skills with visa, version, owner, item count |
-| `POST /api/cases/{case_id}/checks` `{kind, checklist_skill?}` | start `CaseCheckWorkflow`; returns `{check_id}` (202) |
+| `POST /api/cases/{case_id}/checks` `{kind, checklist_skill?}` | write `checks/<check_id>.start.json`, then start `CaseCheckWorkflow` (id `check-<check_id>`); returns `{check_id}` (202). A start record without a running workflow or result is shown as failed, never as running forever |
 | `GET /api/cases/{case_id}/checks` | checks for the case with status and counts |
 | `GET /api/cases/{case_id}/checks/{check_id}` | `CheckState` while running; the result (§4.9) + review state once written |
 | `POST /api/cases/{case_id}/checks/{check_id}/findings/{finding_id}/review` `{action, note?, adviser}` | append to audit log; 422 `note_required` for `dismissed` without a note |

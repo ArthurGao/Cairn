@@ -3,7 +3,9 @@
 from datetime import datetime
 from typing import Literal
 
-from pydantic import BaseModel, Field
+from pydantic import Field
+
+from cairn.core.model import Model
 
 DataClass = Literal["synthetic", "client"]
 PageMethod = Literal["text", "transcribed", "unreadable"]
@@ -19,12 +21,12 @@ Origin = Literal["rule", "model"]
 # --- §4.7 manifest -------------------------------------------------------------------------
 
 
-class PageRef(BaseModel):
+class PageRef(Model):
     n: int
     method: PageMethod
 
 
-class Document(BaseModel):
+class Document(Model):
     doc_id: str
     filename: str
     stored_name: str  # originals/<stored_name>: "<doc_id>.<ext>" from the sniffed type
@@ -37,7 +39,7 @@ class Document(BaseModel):
     pages: list[PageRef] = Field(default_factory=list[PageRef])
 
 
-class Manifest(BaseModel):
+class Manifest(Model):
     case_id: str
     label: str
     created: datetime
@@ -51,7 +53,7 @@ class Manifest(BaseModel):
 # --- §4.8 page ------------------------------------------------------------------------------
 
 
-class Page(BaseModel):
+class Page(Model):
     doc_id: str
     page: int
     method: PageMethod
@@ -64,7 +66,7 @@ class Page(BaseModel):
 # --- model output that code validates (§8.3-§8.5) --------------------------------------------
 
 
-class RawFact(BaseModel):
+class RawFact(Model):
     """One fact as `case.extract_facts` returns it, before validation."""
 
     category: str
@@ -76,19 +78,19 @@ class RawFact(BaseModel):
     quote: str
 
 
-class ModelConflict(BaseModel):
+class ModelConflict(Model):
     fact_ids: list[str]
     summary: str
     question: str
 
 
-class Citation(BaseModel):
+class Citation(Model):
     doc_id: str
     page: int
     quote: str
 
 
-class ItemReply(BaseModel):
+class ItemReply(Model):
     item_id: str
     status: ItemStatus
     finding: str
@@ -105,7 +107,7 @@ class Fact(RawFact):
     doc_id: str
 
 
-class Conflict(BaseModel):
+class Conflict(Model):
     finding_id: str
     fact_ids: list[str]
     origin: list[Origin]
@@ -114,7 +116,7 @@ class Conflict(BaseModel):
     drafted_by: Literal["model", "template"]
 
 
-class ItemResult(BaseModel):
+class ItemResult(Model):
     finding_id: str
     item_id: str
     status: ItemStatus
@@ -123,7 +125,7 @@ class ItemResult(BaseModel):
     downgraded: Downgrade | None = None
 
 
-class Gap(BaseModel):
+class Gap(Model):
     """A document or pages that could not be checked; reviewed like any other finding."""
 
     finding_id: str
@@ -133,12 +135,12 @@ class Gap(BaseModel):
     reason: str
 
 
-class Dropped(BaseModel):
+class Dropped(Model):
     reason: str
     detail: str
 
 
-class Coverage(BaseModel):
+class Coverage(Model):
     documents: int
     documents_failed: int
     pages: int
@@ -148,7 +150,7 @@ class Coverage(BaseModel):
     facts_dropped: int = 0
 
 
-class CallRecord(BaseModel):
+class CallRecord(Model):
     role: str
     vendor: str
     model: str
@@ -157,12 +159,12 @@ class CallRecord(BaseModel):
     prompt_version: str = ""
 
 
-class ChecklistRef(BaseModel):
+class ChecklistRef(Model):
     skill: str
     version: str
 
 
-class CheckResult(BaseModel):
+class CheckResult(Model):
     check_id: str
     case_id: str
     kind: CheckKind
@@ -188,10 +190,20 @@ class CheckResult(BaseModel):
         )
 
 
+class CheckStart(Model):
+    """Written by the API when it starts a check, so a running check is listed before its
+    result exists (`checks/<check_id>.start.json`)."""
+
+    check_id: str
+    kind: CheckKind
+    checklist_skill: str | None = None
+    started: datetime
+
+
 # --- §4.10 audit ----------------------------------------------------------------------------
 
 
-class AuditEntry(BaseModel):
+class AuditEntry(Model):
     at: datetime
     check_id: str
     finding_id: str | None

@@ -19,6 +19,7 @@ from cairn.core.atomic import append_line_durable, write_bytes_atomic, write_tex
 from cairn.core.cases.models import (
     AuditEntry,
     CheckResult,
+    CheckStart,
     DataClass,
     DocStatus,
     Document,
@@ -202,6 +203,42 @@ def write_result(cases_dir: Path, result: CheckResult) -> None:
         write_text_atomic(path, text)
 
 
+def record_check_start(cases_dir: Path, case_id: str, start: CheckStart) -> None:
+    with _locked(cases_dir, case_id) as root:
+        path = root / "checks" / f"{_safe_id(start.check_id, 'check id')}.start.json"
+        write_text_atomic(path, start.model_dump_json(indent=2) + "\n")
+
+
+def read_check_start(cases_dir: Path, case_id: str, check_id: str) -> CheckStart:
+    path = case_dir(cases_dir, case_id) / "checks" / f"{_safe_id(check_id, 'check id')}.start.json"
+    if not path.is_file():
+        raise NotFound(f"case {case_id} has no check {check_id}", code="check_not_found")
+    return CheckStart.model_validate_json(path.read_text(encoding="utf-8"))
+
+
+def list_checks(cases_dir: Path, case_id: str) -> list[tuple[CheckStart, CheckResult | None]]:
+    """Every started check, newest first, with its result once written."""
+    root = case_dir(cases_dir, case_id) / "checks"
+    checks: list[tuple[CheckStart, CheckResult | None]] = []
+    starts: list[Path] = sorted(root.glob("*.start.json")) if root.is_dir() else []
+    for path in starts:
+        start = CheckStart.model_validate_json(path.read_text(encoding="utf-8"))
+        result_path = root / f"{start.check_id}.json"
+        result = (
+            CheckResult.model_validate_json(result_path.read_text(encoding="utf-8"))
+            if result_path.is_file()
+            else None
+        )
+        checks.append((start, result))
+    return sorted(checks, key=lambda c: c[0].started, reverse=True)
+
+
+def signed_off(audit: list[AuditEntry], check_id: str) -> AuditEntry | None:
+    return next(
+        (e for e in reversed(audit) if e.check_id == check_id and e.action == "signed_off"), None
+    )
+
+
 def read_result(cases_dir: Path, case_id: str, check_id: str) -> CheckResult:
     path = case_dir(cases_dir, case_id) / "checks" / f"{_safe_id(check_id, 'check id')}.json"
     if not path.is_file():
@@ -230,6 +267,15 @@ def review_states(audit: list[AuditEntry], check_id: str) -> dict[str, ReviewAct
         if entry.check_id == check_id and entry.finding_id and entry.action != "signed_off":
             states[entry.finding_id] = entry.action
     return states
+
+
+def review_notes(audit: list[AuditEntry], check_id: str) -> dict[str, str]:
+    """The note of each finding's latest review that had one."""
+    return {
+        e.finding_id: e.note
+        for e in audit
+        if e.check_id == check_id and e.finding_id and e.note and e.action != "signed_off"
+    }
 
 
 def needs_review(result: CheckResult) -> list[str]:
