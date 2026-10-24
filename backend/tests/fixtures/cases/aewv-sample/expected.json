@@ -1,0 +1,12 @@
+{
+  "_comment": "Expected outcomes for the sample case. Fact ids are assigned in document order: questionnaire f1-f5, employer-letter f6-f7, application-form f8-f12, tenancy f13-f14.",
+  "facts_accepted": 14,
+  "rule_conflicts": [
+    ["f3", "f10", "f14"],
+    ["f4", "f6", "f11"]
+  ],
+  "no_conflict_for": [
+    "identity.date_of_birth: 12/04/1990 vs 12 April 1990",
+    "employment.period: 1 June 2022 (letter) vs June 2022 (form), month precision"
+  ]
+}

@@ -6,8 +6,7 @@ import pytest
 from temporalio.testing import WorkflowEnvironment
 
 from cairn.settings import env_names
-
-FIXTURES = Path(__file__).parent / "fixtures"
+from tests.support import FIXTURES
 
 
 @pytest.fixture(autouse=True)

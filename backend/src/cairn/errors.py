@@ -14,3 +14,28 @@ class CairnError(Exception):
             self.code = code
         if status is not None:
             self.status = status
+
+
+class NotFound(CairnError):
+    code = "not_found"
+    status = 404
+
+
+class Conflict(CairnError):
+    code = "conflict"
+    status = 409
+
+
+class Invalid(CairnError):
+    code = "invalid"
+    status = 422
+
+
+class TooLarge(CairnError):
+    code = "case_too_large"
+    status = 413
+
+
+class Unsupported(CairnError):
+    code = "unsupported_type"
+    status = 415

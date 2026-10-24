@@ -279,13 +279,16 @@ writeback: { applied: 2, rejected: 1 }
 { "case_id": "01JB...", "label": "AEWV sample 1", "created": "2026-10-24T03:00:00Z",
   "data_class": "synthetic",
   "documents": [
-    { "doc_id": "01JB...", "filename": "employer-letter.pdf", "media_type": "application/pdf",
+    { "doc_id": "01JB...", "filename": "employer-letter.pdf", "stored_name": "01JB....pdf",
+      "media_type": "application/pdf",
       "bytes": 48211, "sha256": "...", "uploaded": "2026-10-24T03:01:10Z",
       "status": "pending|ingested|failed", "error": null,
       "pages": [ { "n": 1, "method": "text|transcribed|unreadable" } ] } ] }
 ```
 
-Written by `core.cases` under `.case.lock` with atomic replace. `data_class` is copied from
+Written by `core.cases` under `.case.lock` with atomic replace. Ids are plain
+`[A-Za-z0-9_-]{1,64}` (they become path parts); adding a document is idempotent per `doc_id`
+(same bytes → the stored document; different bytes → 409 `document_exists`). `data_class` is copied from
 `CAIRN_DATA_CLASS` when the case is created and never changes (§10.4). Accepted uploads (v1):
 PDF, PNG, JPEG, plain text and Markdown; anything else is rejected at upload with `unsupported_type`.
 
@@ -329,12 +332,17 @@ reason: null                 # set when method = unreadable
                "status": "checked|pending|unable", "finding": "...",
                "citations": [ { "doc_id": "...", "page": 1, "quote": "..." } ],
                "downgraded": null } ],
-  "dropped": [ { "reason": "citation_invalid|unknown_category|bad_normalised", "detail": "..." } ],
+  "gaps": [ { "finding_id": "g1", "doc_id": "...", "kind": "unreadable|failed", "pages": [3],
+              "reason": "bank-statement.pdf: 1 page(s) could not be read" } ],
+  "dropped": [ { "reason": "citation_invalid|unknown_category|bad_normalised|...", "detail": "..." } ],
+  "wording_replacements": 0,
   "calls": [ { "role": "...", "vendor": "...", "model": "...", "tokens_in": 0, "tokens_out": 0 } ] }
 ```
 
-`conflicts` is set for `consistency`, `items` for `presubmission`. Written once by the workflow's
-last activity (temp file + rename); never edited — adviser review lives in `_audit.jsonl`.
+`conflicts` is set for `consistency`, `items` for `presubmission`; `gaps` (one per failed
+document, one per document with unreadable pages) is set for both, so what could not be checked is
+a finding the adviser settles like any other. Written once by the workflow's last activity (temp
+file + rename); never edited — adviser review lives in `_audit.jsonl`.
 
 ### 4.10 Case audit log — `<cases>/<case_id>/_audit.jsonl`
 
@@ -343,10 +351,11 @@ last activity (temp file + rename); never edited — adviser review lives in `_a
 {"at":"2026-10-24T04:30:00Z","check_id":"01JB...","finding_id":null,"action":"signed_off","note":null,"adviser":"A. Adviser"}
 ```
 
-Append-only, under `.case.lock`. A finding's current review state is its last entry. `signed_off`
-is accepted only when every finding has a review state other than none and every `unable` item and
-unreadable page has been `confirmed` or `dismissed` with a note. The `adviser` field is a typed
-name in v1 (no auth, §2).
+Append-only, under `.case.lock`. A finding's current review state is its last entry. `dismissed`
+always needs a note. `signed_off` is accepted only when every finding that needs review — every
+conflict, every item that is not `checked`, every gap — is currently `confirmed`, `dismissed` or
+`resolved` (`reopened` or no entry blocks). A `checked` item does not block sign-off; it is shown
+with its citations. The `adviser` field is a typed name in v1 (no auth, §2).
 
 ## 5. Progressive disclosure
 
@@ -648,7 +657,9 @@ never read env). Activities that call a model bound their own concurrency to `co
    names — no page text) and the skill body; returns `{conflicts: [{fact_ids, summary, question}]}`.
    Code accepts one only if every id exists, the facts come from ≥ 2 documents, and they share a
    category; for date/period categories the values must actually differ under rule 1's comparison.
-3. **Union.** Conflicts are merged by their fact-id set; `origin` lists `rule`, `model` or both.
+3. **Union.** Model proposals with the same fact-id set count once. Every model proposal whose
+   facts are a subset of a rule conflict's facts merges into it (the first lends its wording);
+   the rest stand alone. `origin` lists `rule`, `model` or both.
    A rule-only conflict gets a template question ("<doc A> (page n) gives <value A>; <doc B>
    (page m) gives <value B>. Which is correct?", `drafted_by: template`).
 4. **Wording guard.** A model question or summary containing any of `fraud|forged|fake|false|
@@ -675,8 +686,8 @@ limits of §8.2; if the estimate exceeds `case_context_budget`, the model pass i
   - a citation whose quote is not on the cited page is dropped (to `dropped`);
   - `checked` with no valid citation → `pending`, `downgraded: "no_valid_citation"`;
   - an item id not in the checklist is dropped.
-- Unreadable pages and failed documents are appended as extra `unable` findings (one per
-  document) so they appear in the same list the adviser works through.
+- Unreadable pages and failed documents become `gaps` (§4.9), listed with the items in the same
+  review list the adviser works through.
 - The result is "clean" only if every item is `checked` and there are no unreadable pages or
   failed documents. The UI shows the three counts, never a single pass/fail badge.
 

@@ -1,0 +1,25 @@
+{
+  "_comment": "Extraction the M2 fake vendor returns, per document. Quotes are verbatim from make_cases.DOCS. doc_id = filename stem.",
+  "questionnaire": [
+    {"category": "identity.name", "subject": "applicant", "value": "Alex Sample", "normalised": "Alex Sample", "page": 1, "quote": "Full name: Alex Sample"},
+    {"category": "identity.date_of_birth", "subject": "applicant", "value": "12/04/1990", "normalised": "1990-04-12", "page": 1, "quote": "Date of birth: 12/04/1990"},
+    {"category": "address.period", "subject": "applicant", "qualifier": "12 Example Street, Hamilton 3200", "value": "since 01/2021", "normalised": "2021-01/..", "page": 1, "quote": "Living at this address since: 01/2021"},
+    {"category": "employment.period", "subject": "applicant", "qualifier": "Example Freight Ltd", "value": "since 03/2022", "normalised": "2022-03/..", "page": 2, "quote": "Start date: 03/2022"},
+    {"category": "employment.role", "subject": "applicant", "qualifier": "Example Freight Ltd", "value": "Warehouse Supervisor", "normalised": "Warehouse Supervisor", "page": 2, "quote": "Role: Warehouse Supervisor"}
+  ],
+  "employer-letter": [
+    {"category": "employment.period", "subject": "applicant", "qualifier": "Example Freight Ltd", "value": "since 1 June 2022", "normalised": "2022-06-01/..", "page": 1, "quote": "as Warehouse Supervisor since 1 June 2022"},
+    {"category": "employment.role", "subject": "applicant", "qualifier": "Example Freight Ltd", "value": "Warehouse Supervisor", "normalised": "Warehouse Supervisor", "page": 1, "quote": "employed by Example Freight Ltd as Warehouse Supervisor"}
+  ],
+  "application-form": [
+    {"category": "identity.name", "subject": "applicant", "value": "Alex Sample", "normalised": "Alex Sample", "page": 1, "quote": "Family name: Sample Given names: Alex"},
+    {"category": "identity.date_of_birth", "subject": "applicant", "value": "12 April 1990", "normalised": "1990-04-12", "page": 1, "quote": "Date of birth: 12 April 1990"},
+    {"category": "address.period", "subject": "applicant", "qualifier": "12 Example Street, Hamilton 3200", "value": "from January 2021", "normalised": "2021-01/..", "page": 1, "quote": "12 Example Street, Hamilton 3200, from January 2021"},
+    {"category": "employment.period", "subject": "applicant", "qualifier": "Example Freight Ltd", "value": "June 2022", "normalised": "2022-06/..", "page": 2, "quote": "Employment start: June 2022"},
+    {"category": "employment.role", "subject": "applicant", "qualifier": "Example Freight Ltd", "value": "Warehouse Supervisor", "normalised": "Warehouse Supervisor", "page": 2, "quote": "Job title: Warehouse Supervisor"}
+  ],
+  "tenancy": [
+    {"category": "identity.name", "subject": "applicant", "value": "Alex Sample", "normalised": "Alex Sample", "page": 1, "quote": "Tenant: Alex Sample"},
+    {"category": "address.period", "subject": "applicant", "qualifier": "12 Example Street, Hamilton 3200", "value": "from 1 May 2021", "normalised": "2021-05-01/..", "page": 1, "quote": "Tenancy start date: 1 May 2021"}
+  ]
+}

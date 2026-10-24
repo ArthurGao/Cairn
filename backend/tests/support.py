@@ -3,6 +3,8 @@ from typing import Any
 
 from cairn.settings import Settings
 
+FIXTURES = Path(__file__).parent / "fixtures"
+
 
 def make_settings(home: Path, cases_dir: Path, **overrides: Any) -> Settings:
     """Settings for a test: ignore backend/.env so a developer's local values never leak in."""
