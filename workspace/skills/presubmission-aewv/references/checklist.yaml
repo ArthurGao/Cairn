@@ -1,0 +1,30 @@
+# SAMPLE CHECKLIST for development with synthetic cases. It is NOT INZ guidance and is not
+# complete: the senior adviser replaces it with the current checklist before any real use.
+visa: aewv
+version: 0.1-sample
+owner: senior adviser
+items:
+  - id: passport-present
+    requirement: A passport bio page for the applicant is included and legible.
+    verify: Find the passport bio page; confirm name, number, date of birth and expiry are readable.
+  - id: names-match
+    requirement: The applicant's name is the same on the passport, application form and job offer.
+    verify: Compare the full name on each; note any difference in spelling or order.
+  - id: job-offer-present
+    requirement: A signed job offer or employment agreement from the employer is included.
+    verify: Find the offer; confirm it names the employer, role and pay, and is signed by both parties.
+  - id: forms-signed-dated
+    requirement: Every form that needs a signature is signed and dated.
+    verify: Check each form's signature and date fields.
+  - id: translations-present
+    requirement: Every document not in English has an English translation attached.
+    verify: For each non-English document, find its translation.
+  - id: referenced-attachments-exist
+    requirement: Every attachment referenced in the cover letter is in the case.
+    verify: List the attachments the cover letter cites (e.g. "Appendix 7"); confirm each is present.
+  - id: police-certificates
+    requirement: Police certificates are included where the checklist owner has marked them required.
+    verify: Find each police certificate; note its country and issue date.
+  - id: client-promised-documents
+    requirement: Documents the client promised to send are present.
+    verify: Compare any "to follow" list in the case notes with the documents present.
