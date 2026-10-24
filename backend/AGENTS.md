@@ -28,7 +28,9 @@ backend/
       writer.py                     # lock + base hash + atomic replace + changelog + undo (§6.4)
       validate.py                   # write-back rule codes (§6.3): plan_writeback, conflict_rejections
       lint.py                       # cleanup checks (§7.2)
-      similarity.py  secrets.py  usage.py  models.py   # secrets.py also holds personal-data patterns
+      consolidate.py                # merge-draft acceptance + fidelity check (§7.3)
+      runs.py                       # run records (§4.6)
+      similarity.py  secrets.py  usage.py  model.py    # secrets.py also holds personal-data patterns
       cases/                        # case store (design §3.2, §4.7–§4.10, §8): still pure
         store.py                    # manifest, page files, results, audit log; case lock
         spec.py                     # parse fact-categories.md and checklist.yaml
@@ -46,8 +48,9 @@ backend/
       vendors/gateway.py            # picks the adapter by model prefix; gateway base URL + key
       vendors/fake.py
       prompts/agent_main.md  memory_extract.md  memory_consolidate.md
-    workflows/case_check.py  workflows/agent_run.py  workflows/memory_cleanup.py
-    activities/ingest.py  case_check.py  context.py  llm.py  tools.py  writeback.py  cleanup.py
+    workflows/case_check.py  workflows/agent_run.py  workflows/memory_cleanup.py  (+ *_models.py)
+    activities/cases.py  agent.py  cleanup.py  common.py   # common: error mapping, LLM call helpers
+    schedule.py                     # cleanup schedule ensure/trigger (§7.1)
     worker.py                       # registers workflows/activities, ensures schedule
     api/app.py  api/routes/*.py  api/schemas.py  api/temporal.py
     cli.py                          # `cairn` entry point (design §9.3)

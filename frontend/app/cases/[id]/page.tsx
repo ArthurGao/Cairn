@@ -2,7 +2,7 @@
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import Link from "next/link";
-import { useParams, useRouter } from "next/navigation";
+import { useRouter } from "next/navigation";
 
 import { PageHeader } from "@/components/PageHeader";
 import { useState } from "react";
@@ -14,12 +14,13 @@ import { api } from "@/lib/api/client";
 import { errorMessage, unwrap } from "@/lib/api/fetch";
 import { type CheckKind, getCase, keys } from "@/lib/api/queries";
 import { checkKindLabel, formatWhen, plural } from "@/lib/format";
+import { useRouteParams } from "@/lib/params";
 
 const METHOD_LABEL = { text: "text", transcribed: "transcribed by model", unreadable: "unreadable" } as const;
 const METHOD_TONE = { text: "", transcribed: "text-accent", unreadable: "text-warn" } as const;
 
 export default function CasePage() {
-  const { id } = useParams<{ id: string }>();
+  const { id } = useRouteParams<"id">();
   const router = useRouter();
   const queryClient = useQueryClient();
   const [checklist, setChecklist] = useState("");

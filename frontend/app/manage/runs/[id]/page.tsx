@@ -1,7 +1,6 @@
 "use client";
 
 import { useQuery } from "@tanstack/react-query";
-import { useParams } from "next/navigation";
 import { useState } from "react";
 
 import { ModelBadge } from "@/components/ModelBadge";
@@ -13,11 +12,12 @@ import { UndoDialog } from "@/components/UndoDialog";
 import { api } from "@/lib/api/client";
 import { unwrap } from "@/lib/api/fetch";
 import { keys } from "@/lib/api/queries";
+import { useRouteParams } from "@/lib/params";
 
 const ACTIVE = new Set(["running", "extracting", "writing"]);
 
 export default function RunPage() {
-  const { id } = useParams<{ id: string }>();
+  const { id } = useRouteParams<"id">();
   const [undoing, setUndoing] = useState<string | null>(null);
   const run = useQuery({
     queryKey: keys.run(id),

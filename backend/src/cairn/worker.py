@@ -14,16 +14,19 @@ from temporalio.worker import Worker
 from cairn import temporal
 from cairn.activities.agent import AgentActivities
 from cairn.activities.cases import CaseActivities
+from cairn.activities.cleanup import CleanupActivities
 from cairn.llm.client import LlmClient, build_client
 from cairn.llm.roles import ConfigError, data_class_problem
 from cairn.llm.validate import validate_models
+from cairn.schedule import ensure_schedule
 from cairn.settings import Settings
 from cairn.workflows.agent_run import AgentRunWorkflow
 from cairn.workflows.case_check import CaseCheckWorkflow
+from cairn.workflows.memory_cleanup import MemoryCleanupWorkflow
 
 log = logging.getLogger("cairn.worker")
 
-WORKFLOWS = [CaseCheckWorkflow, AgentRunWorkflow]
+WORKFLOWS = [CaseCheckWorkflow, AgentRunWorkflow, MemoryCleanupWorkflow]
 
 
 def validate_startup(settings: Settings, client: LlmClient) -> None:
@@ -41,6 +44,7 @@ def build_worker(settings: Settings, temporal_client: Client, llm: LlmClient) ->
         activities=[
             *CaseActivities(settings, llm).all(),
             *AgentActivities(settings, llm).all(),
+            *CleanupActivities(settings, llm).all(),
         ],
     )
 
@@ -53,6 +57,7 @@ async def main() -> None:
     await validate_models(llm.roles)
     settings.cases_dir.mkdir(parents=True, exist_ok=True)
     client = await temporal.connect(settings)
+    log.info("cleanup schedule %s", await ensure_schedule(client, settings))
     log.info("worker polling %s on %s", settings.task_queue, settings.temporal_address)
     await build_worker(settings, client, llm).run()
 

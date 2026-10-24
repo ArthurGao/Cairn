@@ -14,8 +14,9 @@ WORK="$(mktemp -d -t cairn-e2e)"
 cp -R "$ROOT/backend/tests/fixtures/home" "$WORK/home"
 mkdir "$WORK/cases"
 export CAIRN_HOME="$WORK/home" CAIRN_CASES_DIR="$WORK/cases" CAIRN_LLM_VENDOR=fake \
-  CAIRN_FAKE_SCENARIO="$ROOT/backend/tests/fixtures/llm/aewv_sample.json:$ROOT/backend/tests/fixtures/llm/agent_run.json" \
   CAIRN_TASK_QUEUE=e2e
+LLM="$ROOT/backend/tests/fixtures/llm"
+export CAIRN_FAKE_SCENARIO="$LLM/aewv_sample.json:$LLM/agent_run.json:$LLM/cleanup.json"
 PIDS=()
 cleanup() {
   for pid in "${PIDS[@]}"; do kill "$pid" 2>/dev/null || true; done

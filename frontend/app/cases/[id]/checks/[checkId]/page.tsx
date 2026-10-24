@@ -1,7 +1,6 @@
 "use client";
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useParams } from "next/navigation";
 import { type ReactNode, useEffect, useMemo, useState } from "react";
 
 import { type Citation, CitationViewer } from "@/components/CitationViewer";
@@ -17,6 +16,7 @@ import { errorMessage, unwrap } from "@/lib/api/fetch";
 import { getCase, keys, type ReviewAction } from "@/lib/api/queries";
 import { loadAdviser, saveAdviser } from "@/lib/adviser";
 import { ACTION_LABEL, checkKindLabel, formatWhen, plural } from "@/lib/format";
+import { useRouteParams } from "@/lib/params";
 
 type Pending = { findingId: string; action: ReviewAction } | null;
 type Source = (docId: string, page: number, quote: string, label?: string) => ReactNode;
@@ -30,7 +30,7 @@ const DOWNGRADE = {
 } as const;
 
 export default function CheckPage() {
-  const { id, checkId } = useParams<{ id: string; checkId: string }>();
+  const { id, checkId } = useRouteParams<"id" | "checkId">();
   const queryClient = useQueryClient();
   const [citation, setCitation] = useState<Citation | null>(null);
   const [pending, setPending] = useState<Pending>(null);

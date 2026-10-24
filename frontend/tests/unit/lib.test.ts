@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import { ApiError, errorMessage, unwrap } from "@/lib/api/fetch";
-import { plural } from "@/lib/format";
+import { plural, timeLeft } from "@/lib/format";
 import { highlight } from "@/lib/highlight";
 
 const response = (status: number) => new Response(null, { status });
@@ -54,5 +54,19 @@ describe("format", () => {
 
   it("explains network failures", () => {
     expect(errorMessage(new TypeError("Failed to fetch"))).toBe("The API could not be reached (Failed to fetch)");
+  });
+});
+
+describe("timeLeft", () => {
+  const now = Date.parse("2026-10-24T03:00:00Z");
+  it("counts down in days, hours and minutes", () => {
+    expect(timeLeft("2026-10-30T02:59:00Z", now)).toBe("5 days 23 h left");
+    expect(timeLeft("2026-10-25T03:30:00Z", now)).toBe("1 day 0 h left");
+    expect(timeLeft("2026-10-24T05:12:00Z", now)).toBe("2 h 12 min left");
+    expect(timeLeft("2026-10-24T03:45:30Z", now)).toBe("45 min left");
+  });
+  it("says expired at and after the deadline", () => {
+    expect(timeLeft("2026-10-24T03:00:00Z", now)).toBe("expired");
+    expect(timeLeft("2026-10-20T00:00:00Z", now)).toBe("expired");
   });
 });

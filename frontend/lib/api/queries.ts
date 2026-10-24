@@ -13,6 +13,9 @@ export const keys = {
   memory: ["memory"] as const,
   memoryDetail: (slug: string) => ["memory", slug] as const,
   context: ["context"] as const,
+  skills: ["skills"] as const,
+  cleanups: ["cleanups"] as const,
+  cleanup: (workflowId: string) => ["cleanup", workflowId] as const,
 };
 
 /** Every query a memory write can change (undo, write-back); `memory` prefixes each detail. */

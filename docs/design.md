@@ -529,12 +529,15 @@ A Temporal Schedule `memory-cleanup-weekly` starts `MemoryCleanupWorkflow` every
 day. `cairn schedule ensure` creates or updates it idempotently; the worker calls the same function
 at startup. Workflows cannot read env, so `ensure` puts the current settings into the schedule
 action's input (`CleanupInput { review_timeout, stale_days, dup_threshold, dup_body_threshold,
-auto_apply_mechanical, today_tz }`) and updates them when settings change. Likewise `POST /api/runs`
+memory_index_budget, auto_apply_mechanical, tz }`) and updates them when settings change. The
+schedule starts workflow id `cleanup`, to which Temporal appends the start time
+(`cleanup-2026-10-25T03:00:00Z`). Likewise `POST /api/runs`
 passes `max_steps` and budgets in `RunInput`, and `POST /api/cases/{id}/checks` fills `CheckInput`.
 
 `POST /api/cleanup/run` first describes the schedule: if `info.running_actions` is non-empty it
 returns **409** `cleanup_in_progress` with that workflow id (a trigger would be silently dropped by
-`SKIP`); otherwise it calls `schedule.trigger()` and returns 202.
+`SKIP`); otherwise it calls `schedule.trigger()` and returns 202. Before the worker or `ensure`
+has created the schedule it returns **503** `schedule_missing`.
 
 `SKIP` gives single-flight: a cleanup still waiting for review blocks the next one instead of
 stacking two proposals over the same files.
@@ -597,8 +600,18 @@ MemoryCleanupWorkflow
   wait_condition(decision received, timeout = CAIRN_REVIEW_TIMEOUT, default 6 days)
      signal submit_review(ReviewDecision { approved_op_ids: [str], reviewer_note?: str })
   timeout -> status = expired; nothing applied
+  no op approved ("Reject all") -> status = rejected; nothing applied
   apply approved ops via core.writer (actor "cleanup:<wf_id>") -> status = applied
 ```
+
+Statuses: `linting`, `drafting`, `awaiting_review`, `applying`, then one of `applied`,
+`rejected`, `expired`, `no_changes` (nothing to review: the workflow ends without waiting) or
+`failed`. Only the first `submit_review` while `awaiting_review` counts. A merge draft that fails
+(vendor error or a refused draft) becomes a `merge_not_drafted` finding. An applied change that the
+writer rejects (`conflict`) is listed in the outcome with the writer's reason; the rest still apply.
+The fidelity check matches facts as whole tokens: `14` does not occur in `2026-07-14`.
+The workflow keeps its status, expiry and change count in its memo, so `GET /api/cleanup` lists
+cleanups from Temporal visibility alone, without querying each workflow (which needs a worker).
 
 - Every op shows a before/after diff in the proposal (`before` = current text, `after` = proposed
   text or "moved to _archive/").
@@ -895,8 +908,8 @@ The gate is config, not code paths: the role layer is unchanged when `azure` is 
 | `GET /api/skills/{name}` | SKILL.md body + list of references |
 | `GET /api/cleanup` | latest cleanup runs with status |
 | `GET /api/cleanup/{workflow_id}` | proposal: findings + ops with diffs |
-| `POST /api/cleanup/{workflow_id}/review` | `ReviewDecision`; 409 unless status is `awaiting_review` |
-| `POST /api/cleanup/run` | trigger the schedule now |
+| `POST /api/cleanup/{workflow_id}/review` | `ReviewDecision`; 202; 409 `not_awaiting_review` unless status is `awaiting_review`; 422 `unknown_op` for an op id not in the proposal |
+| `POST /api/cleanup/run` | trigger the schedule now (202); 409 `cleanup_in_progress`, 503 `schedule_missing` (§7.1) |
 | `GET /api/health` | API up + Temporal reachable + home and case store readable + `data_class` (503 with reason otherwise) |
 
 - Errors follow one shape `{error: {code, message}}`. A failed upstream (Temporal down) is 503,

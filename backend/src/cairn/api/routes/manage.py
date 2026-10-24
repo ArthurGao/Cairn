@@ -5,7 +5,6 @@ from typing import Annotated, Any
 
 from fastapi import APIRouter, Depends, Query
 from temporalio.client import WorkflowExecutionStatus
-from temporalio.service import RPCError
 from ulid import ULID
 
 from cairn.api.schemas import (
@@ -23,6 +22,7 @@ from cairn.api.schemas import (
     StartRun,
 )
 from cairn.api.services import Services, services
+from cairn.api.workflows import workflow_view
 from cairn.core.context import build_context
 from cairn.core.formats import parse_memory
 from cairn.core.index import (
@@ -107,19 +107,21 @@ async def list_runs(deps: Deps, limit: Annotated[int, Query(ge=1, le=100)] = 20)
 async def get_run(run_id: str, deps: Deps) -> RunState:
     client = await deps.temporal.client()
     handle = client.get_workflow_handle_for(AgentRunWorkflow.run, run_workflow_id(run_id))
-    try:
-        description = await handle.describe()
-        if description.status == WorkflowExecutionStatus.RUNNING:
-            state = await handle.query(AgentRunWorkflow.get_state)
-            if state is None:
-                return RunState(run_id=run_id, task="")
-            return state
-        if description.status == WorkflowExecutionStatus.COMPLETED:
-            return _with_undone(await handle.result(), deps)
-    except RPCError as exc:
-        raise NotFound(f"no run {run_id}", code="run_not_found") from exc
-    status = description.status.name.lower() if description.status else "unknown"
-    return RunState(run_id=run_id, task="", status="failed", error=f"the run stopped ({status})")
+
+    def stopped(status: str | None) -> RunState:
+        if status is None:
+            return RunState(run_id=run_id, task="")
+        return RunState(
+            run_id=run_id, task="", status="failed", error=f"the run stopped ({status})"
+        )
+
+    state = await workflow_view(
+        handle,
+        AgentRunWorkflow.get_state,
+        NotFound(f"no run {run_id}", code="run_not_found"),
+        stopped,
+    )
+    return _with_undone(state, deps)
 
 
 def _with_undone(state: RunState, deps: Services) -> RunState:

@@ -1,6 +1,7 @@
 """`cairn` command line (design §9.3): the core library for any tool or git hook."""
 
 import argparse
+import asyncio
 import json
 import sys
 from collections.abc import Sequence
@@ -8,12 +9,14 @@ from datetime import UTC, date, datetime
 from pathlib import Path
 from zoneinfo import ZoneInfo
 
+from cairn import temporal
 from cairn.core.context import build_context
 from cairn.core.index import index_current
 from cairn.core.lint import has_errors, lint_home
 from cairn.core.usage import load_usage
 from cairn.core.writer import sync_index, undo
 from cairn.errors import CairnError
+from cairn.schedule import ensure_schedule
 from cairn.settings import Settings
 
 
@@ -66,6 +69,15 @@ def _undo(args: argparse.Namespace) -> int:
     return 0
 
 
+def _schedule(_: argparse.Namespace) -> int:
+    async def ensure() -> str:
+        settings = Settings()
+        return await ensure_schedule(await temporal.connect(settings), settings)
+
+    print(f"cleanup schedule {asyncio.run(ensure())}")
+    return 0
+
+
 def _parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(prog="cairn", description=__doc__)
     sub = parser.add_subparsers(dest="command", required=True)
@@ -91,6 +103,10 @@ def _parser() -> argparse.ArgumentParser:
     undo_cmd = command("undo", "undo a change (and its whole group)")
     undo_cmd.add_argument("change_id")
     undo_cmd.set_defaults(run=_undo)
+
+    schedule = sub.add_parser("schedule", help="the weekly memory cleanup schedule")
+    schedule.add_argument("action", choices=["ensure"], help="create or update it (idempotent)")
+    schedule.set_defaults(run=_schedule)
     return parser
 
 

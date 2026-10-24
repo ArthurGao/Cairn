@@ -34,3 +34,13 @@ export const ACTION_VERB = {
   resolved: "Resolve",
   reopened: "Reopen",
 } as const;
+
+/** Time left before a review deadline, coarse enough to read at a glance. */
+export function timeLeft(deadlineIso: string, nowMs: number): string {
+  const minutes = Math.floor((new Date(deadlineIso).getTime() - nowMs) / 60_000);
+  if (minutes <= 0) return "expired";
+  const days = Math.floor(minutes / 1440);
+  const hours = Math.floor((minutes % 1440) / 60);
+  if (days > 0) return `${plural(days, "day")} ${hours} h left`;
+  return hours > 0 ? `${hours} h ${minutes % 60} min left` : `${minutes} min left`;
+}

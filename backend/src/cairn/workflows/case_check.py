@@ -13,8 +13,7 @@ from typing import Any
 
 from pydantic import BaseModel
 from temporalio import workflow
-from temporalio.common import RetryPolicy
-from temporalio.exceptions import ActivityError, ApplicationError
+from temporalio.exceptions import ActivityError
 
 with workflow.unsafe.imports_passed_through():
     from cairn.activities.cases import CaseActivities
@@ -32,18 +31,10 @@ with workflow.unsafe.imports_passed_through():
         MeasureInput,
         ProposeInput,
     )
+    from cairn.workflows.common import FILE_TIMEOUT, RETRY, reason_of
 
-FILE_TIMEOUT = timedelta(minutes=1)
 MODEL_TIMEOUT = timedelta(minutes=10)
 HEARTBEAT_TIMEOUT = timedelta(minutes=3)  # ingest/extract heartbeat per page or unit
-RETRY = RetryPolicy(
-    initial_interval=timedelta(seconds=2), backoff_coefficient=2.0, maximum_attempts=3
-)
-
-
-def _reason(error: ActivityError) -> str:
-    cause = error.cause
-    return cause.message if isinstance(cause, ApplicationError) else str(cause or error)
 
 
 async def _in_batches[T](jobs: Sequence[T], size: int, run: Callable[[T], Awaitable[None]]) -> None:
@@ -78,7 +69,7 @@ class CaseCheckWorkflow:
         try:
             outcome = await workflow.execute_activity_method(method, job, **options)
         except ActivityError as error:
-            return _reason(error)
+            return reason_of(error)
         self._calls += getattr(outcome, "calls", [])
         return outcome
 
@@ -217,7 +208,7 @@ class CaseCheckWorkflow:
                 retry_policy=RETRY,
             )
         except ActivityError as error:
-            state.step, state.error = "failed", f"could not write the result: {_reason(error)}"
+            state.step, state.error = "failed", f"could not write the result: {reason_of(error)}"
             raise
         state.step = "failed" if summary.status == "failed" else "done"
         state.error = summary.error

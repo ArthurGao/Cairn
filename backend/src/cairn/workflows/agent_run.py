@@ -5,17 +5,16 @@ The model works from the L0 context and loads detail through read-only tools; af
 run record is written. Deterministic: no I/O, no clock but workflow.now(), no randomness.
 """
 
-from collections.abc import Awaitable, Callable
 from datetime import timedelta
 from typing import Any
 
 from temporalio import workflow
-from temporalio.common import RetryPolicy
-from temporalio.exceptions import ActivityError, ApplicationError
+from temporalio.exceptions import ActivityError
 
 with workflow.unsafe.imports_passed_through():
     from cairn.activities.agent import AgentActivities
     from cairn.llm.types import LlmResult, Message, TextPart, ToolResultPart
+    from cairn.workflows.common import act, reason_of
     from cairn.workflows.run_models import (
         TRANSCRIPT_CHARS,
         ApplyIn,
@@ -28,20 +27,11 @@ with workflow.unsafe.imports_passed_through():
         WritebackResult,
     )
 
-FILE_TIMEOUT = timedelta(minutes=1)
 MODEL_TIMEOUT = timedelta(minutes=5)
-RETRY = RetryPolicy(
-    initial_interval=timedelta(seconds=2), backoff_coefficient=2.0, maximum_attempts=3
-)
 
 
 def run_workflow_id(run_id: str) -> str:
     return f"run-{run_id}"
-
-
-def _reason(error: ActivityError) -> str:
-    cause = error.cause
-    return cause.message if isinstance(cause, ApplicationError) else str(cause or error)
 
 
 @workflow.defn
@@ -55,20 +45,13 @@ class AgentRunWorkflow:
     def get_state(self) -> RunState | None:
         return self._state
 
-    async def _act(
-        self, method: Callable[..., Awaitable[Any]], arg: Any, limit: timedelta = FILE_TIMEOUT
-    ) -> Any:
-        return await workflow.execute_activity_method(
-            method, arg, start_to_close_timeout=limit, retry_policy=RETRY
-        )
-
     @workflow.run
     async def run(self, run: RunInput) -> RunState:
         state = self._state = RunState(run_id=run.run_id, task=run.task, started=workflow.now())
         try:
-            context = await self._act(AgentActivities.build_run_context, run)
+            context = await act(AgentActivities.build_run_context, run)
         except ActivityError as error:
-            return await self._end(run, state, error=_reason(error))
+            return await self._end(run, state, error=reason_of(error))
         state.context = context.breakdown
 
         messages = [Message.user(run.task)]
@@ -76,13 +59,13 @@ class AgentRunWorkflow:
         read_hashes: dict[str, str] = {}  # what each memory looked like when the agent read it
         for _ in range(run.max_steps):
             try:
-                reply: LlmResult = await self._act(
+                reply: LlmResult = await act(
                     AgentActivities.agent_step,
                     LlmStepIn(system=context.system, messages=messages),
                     MODEL_TIMEOUT,
                 )
             except ActivityError as error:
-                return await self._end(run, state, error=_reason(error))
+                return await self._end(run, state, error=reason_of(error))
             self._tokens_in += reply.tokens_in
             self._tokens_out += reply.tokens_out
             state.steps.append(
@@ -103,7 +86,7 @@ class AgentRunWorkflow:
                 break
             results: list[Any] = []
             for call in reply.tool_calls:
-                out = await self._act(AgentActivities.run_tool, call)
+                out = await act(AgentActivities.run_tool, call)
                 arg = next(iter(call.args.values()), None) if call.args else None
                 state.steps.append(
                     Step(
@@ -132,14 +115,14 @@ class AgentRunWorkflow:
         state.status = "extracting"
         answer = state.answer or ""
         try:
-            extracted = await self._act(
+            extracted = await act(
                 AgentActivities.extract_writeback,
                 ExtractIn(task=run.task, answer=answer, transcript=transcript),
                 MODEL_TIMEOUT,
             )
         except ActivityError as error:
             # A failed extraction is never shown as "nothing to remember" (D-08).
-            state.writeback = WritebackResult(error=f"memory extraction failed: {_reason(error)}")
+            state.writeback = WritebackResult(error=f"memory extraction failed: {reason_of(error)}")
             return await self._end(run, state)
         self._tokens_in += extracted.tokens_in
         self._tokens_out += extracted.tokens_out
@@ -147,7 +130,7 @@ class AgentRunWorkflow:
 
         state.status = "writing"
         try:
-            state.writeback = await self._act(
+            state.writeback = await act(
                 AgentActivities.apply_writeback,
                 ApplyIn(
                     run_id=run.run_id,
@@ -160,7 +143,7 @@ class AgentRunWorkflow:
                 ),
             )
         except ActivityError as error:
-            state.writeback = WritebackResult(error=f"write-back failed: {_reason(error)}")
+            state.writeback = WritebackResult(error=f"write-back failed: {reason_of(error)}")
         return await self._end(run, state, summary=proposal.run_summary, items=proposal.open_items)
 
     async def _end(
@@ -173,7 +156,7 @@ class AgentRunWorkflow:
     ) -> RunState:
         state.status = "failed" if error else "completed"
         state.error = error
-        await self._act(
+        await act(
             AgentActivities.record_agent_run,
             RecordIn(
                 state=state,

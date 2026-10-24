@@ -39,6 +39,8 @@ export default function RootLayout({ children }: { children: ReactNode }) {
                     ["/manage/runs", "Runs"],
                     ["/manage/context", "Context"],
                     ["/manage/memory", "Memory"],
+                    ["/manage/skills", "Skills"],
+                    ["/manage/cleanup", "Cleanup"],
                   ].map(([href, label]) => (
                     <Link key={href} href={href} className="text-muted hover:text-ink hover:underline">
                       {label}

@@ -17,6 +17,7 @@ from cairn.core.model import Model
 from cairn.core.usage import UsageEntry
 from cairn.core.writer import ChangeEntry
 from cairn.workflows.case_models import CheckState, SpecItem
+from cairn.workflows.cleanup_models import CleanupStatus
 from cairn.workflows.run_models import RunStatus
 
 
@@ -196,3 +197,15 @@ class SkillEntry(Model):
 
 class SkillDetail(SkillEntry):
     body: str
+
+
+class CleanupBrief(Model):
+    workflow_id: str
+    status: CleanupStatus
+    started: datetime | None
+    expires: datetime | None
+    changes: int  # proposed changes awaiting (or past) review
+
+
+class Accepted(Model):
+    status: Literal["accepted"] = "accepted"
