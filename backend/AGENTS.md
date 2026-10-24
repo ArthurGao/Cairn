@@ -100,6 +100,7 @@ After moving the project or adding a path dependency: `rm -rf .venv && uv lock &
 - Task queue: `cairn`. Workflow ids: `check-<check_id>`, `run-<run_id>`; cleanup ids come from the
   schedule.
 - Local server: `temporal server start-dev --db-filename .temporal/dev.db --port 7233 --ui-port 8233`.
+  Or in Docker: `make temporal-up` (same image version as the CLI; the worker stays on the host, D-18).
 
 ## Testing rules
 

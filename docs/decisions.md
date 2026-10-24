@@ -185,3 +185,18 @@ through review queues. Swiss-grid is the KB direction that covers both reading a
 refined-saas (dark, developer-tool feel) suits operating only, and warm-humanist avoids density.
 Red is reserved for conflicts and diffs, so the Swiss red accent is replaced by a single other
 colour.
+
+## D-18 — Docker runs only the Temporal dev server; the worker, API and web stay on the host
+
+**Decision.** `docker-compose.yml` has one service: the Temporal dev server
+(`temporalio/temporal`, pinned to the CLI's version, ports 7233/8233, SQLite in a named volume).
+The worker, API and web are started on the host (`make dev-app` or one target each).
+
+**Why.** The worker and the API both write the harness home and the case store, and they rely on
+`filelock` for the home and case locks (§6.4). On macOS, locks taken inside a container on a
+bind-mounted directory are not guaranteed to be seen by a host process, so a containerised worker
+and a host API could write the same file at once. Temporal shares nothing on disk with them.
+
+**Revisit when** the worker and the API run in the same place (both in containers on one Linux
+host, or a deployment with its own storage), at which point all of them can be containerised.
+

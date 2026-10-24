@@ -1,5 +1,5 @@
 # Entry points (AGENTS.md "Commands"). Ports are fixed: API 4700, web 4710, Temporal 7233/8233.
-.PHONY: install dev dev-temporal dev-worker dev-api dev-web check check-backend check-frontend test e2e-full
+.PHONY: install dev dev-temporal temporal-up temporal-down dev-app dev-worker dev-api dev-web check check-backend check-frontend test e2e-full
 
 install:
 	cd backend && uv sync
@@ -12,6 +12,17 @@ dev:
 dev-temporal:
 	mkdir -p .temporal
 	temporal server start-dev --db-filename .temporal/dev.db --port 7233 --ui-port 8233
+
+# Temporal in Docker instead of the CLI (docker-compose.yml); data persists in a named volume.
+temporal-up:
+	docker compose up -d --wait temporal
+
+temporal-down:
+	docker compose down
+
+# Worker + API + web on the host, against an already running Temporal (e.g. `make temporal-up`).
+dev-app:
+	$(MAKE) -j3 dev-worker dev-api dev-web
 
 dev-worker:
 	cd backend && uv run python -m cairn.worker
