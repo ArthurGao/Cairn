@@ -5,8 +5,6 @@ Index re-derivation is the only change applied without review. Archives and merg
 Deterministic: no I/O, no clock but workflow.now(), no randomness.
 """
 
-from datetime import timedelta
-
 from temporalio import workflow
 from temporalio.exceptions import ActivityError
 
@@ -26,9 +24,7 @@ with workflow.unsafe.imports_passed_through():
         Proposal,
         ReviewDecision,
     )
-    from cairn.workflows.common import act, reason_of
-
-MODEL_TIMEOUT = timedelta(minutes=5)
+    from cairn.workflows.common import act, act_model, reason_of
 
 
 @workflow.defn
@@ -72,10 +68,9 @@ class MemoryCleanupWorkflow:
         self._set("drafting")
         for cluster in linted.clusters[:MAX_CLUSTERS]:
             try:
-                out: DraftOut = await act(
+                out: DraftOut = await act_model(
                     CleanupActivities.draft_merge,
                     DraftIn(workflow_id=wf_id, cluster=cluster, now=workflow.now(), tz=config.tz),
-                    MODEL_TIMEOUT,
                 )
             except ActivityError as error:  # a failed draft is a finding, never a weaker merge
                 out = DraftOut(finding=not_drafted(cluster.slugs, reason_of(error)))

@@ -1,6 +1,5 @@
 """`call(request) -> LlmResult`: the one entry point to every model (design §10.3)."""
 
-import os
 from collections.abc import Mapping
 from typing import Protocol
 
@@ -8,7 +7,7 @@ import httpx2
 
 from cairn.llm.roles import ConfigError, Role, RoleConfig, load_roles
 from cairn.llm.types import LlmError, LlmRequest, LlmResult
-from cairn.settings import Settings
+from cairn.settings import Settings, role_env
 
 
 class Vendor(Protocol):
@@ -57,7 +56,7 @@ def build_client(
     from cairn.llm.vendors.gateway import GatewayVendor
 
     roles = load_roles(
-        settings.roles_file, env if env is not None else os.environ, settings.llm_vendor
+        settings.roles_file, env if env is not None else role_env(), settings.llm_vendor
     )
     used = {c.vendor for c in roles.values()}
     vendors: dict[str, Vendor] = {}

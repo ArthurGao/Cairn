@@ -6,7 +6,6 @@ vendor availability and the data-class gate are checked before the worker polls.
 
 import asyncio
 import logging
-import os
 
 from temporalio.client import Client
 from temporalio.worker import Worker
@@ -52,7 +51,7 @@ def build_worker(settings: Settings, temporal_client: Client, llm: LlmClient) ->
 async def main() -> None:
     logging.basicConfig(level=logging.INFO, format="%(asctime)s %(name)s %(message)s")
     settings = Settings()
-    llm = build_client(settings, os.environ)
+    llm = build_client(settings)
     validate_startup(settings, llm)
     await validate_models(llm.roles)
     settings.cases_dir.mkdir(parents=True, exist_ok=True)

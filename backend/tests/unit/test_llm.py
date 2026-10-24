@@ -11,6 +11,7 @@ from cairn.llm.prompts import load_prompt
 from cairn.llm.roles import ConfigError, Role, RoleConfig, data_class_problem, load_roles
 from cairn.llm.types import LlmError, LlmRequest, Message
 from cairn.llm.vendors.fake import FakeVendor
+from cairn.settings import role_env
 from cairn.worker import validate_startup
 from cairn.workflows.case_models import IngestInput
 from tests.support import make_settings
@@ -37,6 +38,21 @@ def test_env_overrides_per_field_and_vendor_override() -> None:
     assert roles[Role.MEMORY_CONSOLIDATE].model == "openai/gpt-5.4-mini"
     assert roles[Role.CASE_EXTRACT_FACTS].max_tokens == 24000
     assert {c.vendor for c in load_roles(ROLES, env, "fake").values()} == {"fake"}
+
+
+def test_role_overrides_in_the_env_file_apply_and_the_process_env_wins(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    env_file = tmp_path / ".env"
+    env_file.write_text(
+        "CAIRN_ROLE_AGENT_MAIN_MODEL=openai/gpt-5.2\n"
+        "CAIRN_ROLE_MEMORY_CONSOLIDATE_MODEL=openai/gpt-5-mini\n"
+    )
+    monkeypatch.setenv("CAIRN_ROLE_MEMORY_CONSOLIDATE_MODEL", "openai/gpt-5-nano")
+    roles = load_roles(ROLES, role_env(env_file))
+    assert roles[Role.AGENT_MAIN].model == "openai/gpt-5.2"
+    assert roles[Role.MEMORY_CONSOLIDATE].model == "openai/gpt-5-nano"
+    assert roles[Role.CASE_CHECK_ITEM].model == "anthropic/claude-sonnet-5.5"
 
 
 def test_invalid_role_config_is_a_config_error() -> None:

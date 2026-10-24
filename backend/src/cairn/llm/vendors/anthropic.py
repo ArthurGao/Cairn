@@ -22,6 +22,7 @@ from cairn.llm.types import (
     ToolResultPart,
     ToolUsePart,
 )
+from cairn.llm.vendors.rate_limit import rate_limited
 
 _STOP: dict[str, StopReason] = {
     "end_turn": "end",
@@ -84,9 +85,7 @@ def classify(exc: Exception) -> LlmError:
     if isinstance(exc, anthropic.APIConnectionError):  # includes timeouts
         return LlmError(f"anthropic: connection failed: {exc}", retryable=True, code="connection")
     if isinstance(exc, anthropic.RateLimitError):
-        return LlmError(
-            f"anthropic: rate limited: {exc.message}", retryable=True, code="rate_limited"
-        )
+        return rate_limited("anthropic", exc.response.headers, exc.message)
     if isinstance(exc, anthropic.APIStatusError):
         status = exc.status_code
         if status >= 500:

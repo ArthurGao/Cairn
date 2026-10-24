@@ -4,10 +4,12 @@ Workflows never read settings: the API and `schedule ensure` copy the values the
 workflow inputs (design §7.1, §8.1).
 """
 
+import os
 from datetime import timedelta
 from pathlib import Path
 from typing import TYPE_CHECKING, Literal
 
+from dotenv import dotenv_values
 from pydantic import Field, SecretStr, field_validator, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
@@ -121,3 +123,14 @@ def env_names() -> set[str]:
         alias = field.validation_alias
         names.add(alias if isinstance(alias, str) else f"{prefix}{name}".upper())
     return names
+
+
+def role_env(env_file: Path | None = None) -> dict[str, str]:
+    """The env file overlaid by the process environment, as Settings itself resolves them.
+
+    Role overrides (CAIRN_ROLE_<ROLE>_<FIELD>) are not Settings fields, so pydantic-settings
+    never reads them from the env file; this gives them the same two sources.
+    """
+    path = env_file or Path(str(Settings.model_config.get("env_file")))
+    from_file = {k: v for k, v in dotenv_values(path).items() if v is not None}
+    return {**from_file, **os.environ}

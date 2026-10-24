@@ -22,6 +22,7 @@ from cairn.llm.types import (
     ToolResultPart,
     ToolUsePart,
 )
+from cairn.llm.vendors.rate_limit import rate_limited
 
 _STOP: dict[str, StopReason] = {
     "stop": "end",
@@ -110,7 +111,7 @@ def classify(exc: Exception) -> LlmError:
     if isinstance(exc, openai.RateLimitError):
         if getattr(exc, "code", None) == "insufficient_quota":  # an empty balance, not a rate
             return LlmError(f"openai: {exc.message}", retryable=False, code="no_credit")
-        return LlmError(f"openai: rate limited: {exc.message}", retryable=True, code="rate_limited")
+        return rate_limited("openai", exc.response.headers, exc.message)
     if isinstance(exc, openai.APIStatusError):
         status = exc.status_code
         if status >= 500:

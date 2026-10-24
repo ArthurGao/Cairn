@@ -25,6 +25,7 @@ class FakeReply(BaseModel):
     tokens_out: int = 0
     error: str | None = None  # raise instead of replying
     retryable: bool = False
+    retry_after: float | None = None
 
 
 class FakeEntry(BaseModel):
@@ -74,7 +75,12 @@ class FakeVendor:
                 self.used.add(n)
             reply = entry.reply
             if reply.error:
-                raise LlmError(reply.error, retryable=reply.retryable, code="fake_error")
+                raise LlmError(
+                    reply.error,
+                    retryable=reply.retryable,
+                    code="fake_error",
+                    retry_after=reply.retry_after,
+                )
             return LlmResult(
                 role=request.role,
                 vendor=self.name,

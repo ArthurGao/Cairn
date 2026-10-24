@@ -511,7 +511,8 @@ conflict. Step 2 checks all ops of a group before step 3 writes any of them.
 
 ### 6.5 Failure behaviour
 
-- LLM call: retry policy 3 attempts, exponential backoff; vendor 4xx (bad request, auth, spend
+- LLM call: retry policy 8 attempts, exponential backoff capped at 1 min, and a rate limit's
+  Retry-After replaces the backoff for that attempt (§10.3); vendor 4xx (bad request, auth, spend
   limit, empty balance — the exact classes are in §10.3) is non-retryable and fails the run with
   the vendor's message in `error`.
 - Reaching `max_steps` without a final reply: run completes with `status: failed`,
@@ -858,6 +859,9 @@ the protocol. Messages may carry text and images (page renders for `document.tra
 - Error classes (§6.5): non-retryable = 400/401/403/404, gateway 402 (budget exhausted), OpenAI
   429 with code `insufficient_quota` (an empty balance, not a rate limit), and Anthropic's
   "credit balance is too low" 400. Retryable = other 429s, 5xx, timeouts and connection errors.
+  A 429's wait (`retry-after-ms`, else `retry-after`, else the gateway's "Retry after Ns" text)
+  becomes the activity's `next_retry_delay`, so Temporal waits what the vendor asked; model
+  activities retry up to 8 times (the gateway's free tier allows 5 requests per minute per model).
 - Startup validation → the worker refuses to start on: a missing key for a configured vendor; a
   `gateway` model id not in `GET https://ai-gateway.vercel.sh/v1/models` or with a prefix other
   than `anthropic/`/`openai/`; a model whose listed `tags` lack what the role needs (the "Needs"

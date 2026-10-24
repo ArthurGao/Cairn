@@ -31,7 +31,7 @@ with workflow.unsafe.imports_passed_through():
         MeasureInput,
         ProposeInput,
     )
-    from cairn.workflows.common import FILE_TIMEOUT, RETRY, reason_of
+    from cairn.workflows.common import FILE_TIMEOUT, MODEL_RETRY, RETRY, reason_of
 
 MODEL_TIMEOUT = timedelta(minutes=10)
 HEARTBEAT_TIMEOUT = timedelta(minutes=3)  # ingest/extract heartbeat per page or unit
@@ -62,7 +62,7 @@ class CaseCheckWorkflow:
         """
         options: dict[str, Any] = {
             "start_to_close_timeout": MODEL_TIMEOUT if model else FILE_TIMEOUT,
-            "retry_policy": RETRY,
+            "retry_policy": MODEL_RETRY if model else RETRY,
         }
         if model:
             options["heartbeat_timeout"] = HEARTBEAT_TIMEOUT

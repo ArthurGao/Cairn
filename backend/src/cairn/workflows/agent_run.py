@@ -5,7 +5,6 @@ The model works from the L0 context and loads detail through read-only tools; af
 run record is written. Deterministic: no I/O, no clock but workflow.now(), no randomness.
 """
 
-from datetime import timedelta
 from typing import Any
 
 from temporalio import workflow
@@ -14,7 +13,7 @@ from temporalio.exceptions import ActivityError
 with workflow.unsafe.imports_passed_through():
     from cairn.activities.agent import AgentActivities
     from cairn.llm.types import LlmResult, Message, TextPart, ToolResultPart
-    from cairn.workflows.common import act, reason_of
+    from cairn.workflows.common import act, act_model, reason_of
     from cairn.workflows.run_models import (
         TRANSCRIPT_CHARS,
         ApplyIn,
@@ -26,8 +25,6 @@ with workflow.unsafe.imports_passed_through():
         Step,
         WritebackResult,
     )
-
-MODEL_TIMEOUT = timedelta(minutes=5)
 
 
 def run_workflow_id(run_id: str) -> str:
@@ -59,10 +56,9 @@ class AgentRunWorkflow:
         read_hashes: dict[str, str] = {}  # what each memory looked like when the agent read it
         for _ in range(run.max_steps):
             try:
-                reply: LlmResult = await act(
+                reply: LlmResult = await act_model(
                     AgentActivities.agent_step,
                     LlmStepIn(system=context.system, messages=messages),
-                    MODEL_TIMEOUT,
                 )
             except ActivityError as error:
                 return await self._end(run, state, error=reason_of(error))
@@ -115,10 +111,9 @@ class AgentRunWorkflow:
         state.status = "extracting"
         answer = state.answer or ""
         try:
-            extracted = await act(
+            extracted = await act_model(
                 AgentActivities.extract_writeback,
                 ExtractIn(task=run.task, answer=answer, transcript=transcript),
-                MODEL_TIMEOUT,
             )
         except ActivityError as error:
             # A failed extraction is never shown as "nothing to remember" (D-08).

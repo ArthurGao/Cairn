@@ -441,6 +441,39 @@ async def test_openai_error_classes(
     assert (info.value.code, info.value.retryable) == (code, retryable)
 
 
+GATEWAY_429 = "Rate limit exceeded for openai/gpt-5.2: 5 requests per minute. Retry after 29s."
+
+
+def _rate_limit_body(config: RoleConfig, message: str) -> dict[str, Any]:
+    if config is SONNET:
+        return {"type": "error", "error": {"type": "rate_limit_error", "message": message}}
+    return {"error": {"message": message, "type": "requests", "code": "rate_limit_exceeded"}}
+
+
+@pytest.mark.parametrize("config", [SONNET, GPT], ids=["anthropic", "openai"])
+@pytest.mark.parametrize(
+    ("headers", "message", "retry_after"),
+    [
+        ({"retry-after": "7"}, "slow down", 7.0),
+        ({"retry-after-ms": "1500", "retry-after": "7"}, "slow down", 1.5),
+        ({}, GATEWAY_429, 29.0),
+        ({}, "slow down", None),
+    ],
+)
+async def test_rate_limits_carry_the_vendors_retry_delay(
+    config: RoleConfig, headers: dict[str, str], message: str, retry_after: float | None
+) -> None:
+    reply = httpx2.Response(429, json=_rate_limit_body(config, message), headers=headers)
+    vendor = GatewayVendor(KEY, _http(lambda _: reply, []))
+    with pytest.raises(LlmError) as info:
+        await vendor.complete(config, _request())
+    assert (info.value.code, info.value.retryable, info.value.retry_after) == (
+        "rate_limited",
+        True,
+        retry_after,
+    )
+
+
 async def test_connection_errors_are_retryable() -> None:
     def boom(request: httpx2.Request) -> httpx2.Response:
         raise httpx2.ConnectError("refused", request=request)

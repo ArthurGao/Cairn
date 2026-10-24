@@ -91,6 +91,14 @@ class LlmError(CairnError):
     code = "llm_error"
     status = 502
 
-    def __init__(self, message: str, *, retryable: bool, code: str | None = None):
+    def __init__(
+        self,
+        message: str,
+        *,
+        retryable: bool,
+        code: str | None = None,
+        retry_after: float | None = None,
+    ):
         super().__init__(message, code=code)
         self.retryable = retryable
+        self.retry_after = retry_after  # seconds the vendor asked us to wait, if it said

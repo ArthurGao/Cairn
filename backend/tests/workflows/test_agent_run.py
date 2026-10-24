@@ -2,6 +2,7 @@
 
 import json
 import uuid
+from datetime import timedelta
 from pathlib import Path
 from typing import Any
 
@@ -160,6 +161,38 @@ async def test_failed_extraction_is_reported_not_silent(
         [],
         "memory extraction failed: overloaded",
     )
+
+
+async def test_rate_limited_model_calls_wait_the_vendors_delay_and_keep_retrying(
+    env: WorkflowEnvironment, home: Path, cases_dir: Path, tmp_path: Path
+) -> None:
+    limited = {"error": "rate limited", "retryable": True, "retry_after": 29}
+    entries = [
+        *[{"role": "agent.main", "reply": limited}] * 4,
+        {"role": "agent.main", "reply": {"text": "Done."}},
+        {"role": "memory.extract", "reply": {"error": "overloaded", "retryable": False}},
+    ]
+    state, history = await _run(
+        env,
+        _settings(home, cases_dir, _scenario(tmp_path, entries)),
+        RunInput(run_id="R4", task="hi"),
+    )
+    assert (state.status, state.answer) == ("completed", "Done.")
+    # Failed attempts are not history events, so the wait shows as the time between the model
+    # step's scheduling and its completion: 4 x 29 s, where the backoff alone is 2+4+8+16 s.
+    scheduled = next(
+        e
+        for e in history.events
+        if e.activity_task_scheduled_event_attributes.activity_type.name == "agent_step"
+    )
+    completed = next(
+        e
+        for e in history.events
+        if e.activity_task_completed_event_attributes.scheduled_event_id == scheduled.event_id
+    )
+    waited = completed.event_time.ToDatetime() - scheduled.event_time.ToDatetime()
+    assert timedelta(seconds=116) <= waited < timedelta(seconds=146)
+    await _replay(history)
 
 
 async def test_tools_refuse_paths_outside_the_skill(

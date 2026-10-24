@@ -21,7 +21,8 @@ from cairn.settings import Settings
 
 pytestmark = pytest.mark.live
 
-_settings = Settings(_env_file=Path(__file__).parents[2] / ".env")  # pyright: ignore[reportCallIssue]
+ENV_FILE = Path(__file__).parents[2] / ".env"
+_settings = Settings(_env_file=ENV_FILE)  # pyright: ignore[reportCallIssue]
 GATEWAY_KEY = (
     os.environ.get("AI_GATEWAY_API_KEY") or _settings.ai_gateway_api_key.get_secret_value()
 )
@@ -31,7 +32,7 @@ ANTHROPIC_KEY = (
 
 PATHS = [
     pytest.param("gateway", "anthropic/claude-sonnet-5.5", id="gateway-claude"),
-    pytest.param("gateway", "openai/gpt-5.4-mini", id="gateway-gpt"),
+    pytest.param("gateway", "openai/gpt-5.2", id="gateway-gpt"),  # in the free tier
     pytest.param("anthropic", "claude-sonnet-5-5", id="direct-anthropic"),
 ]
 
