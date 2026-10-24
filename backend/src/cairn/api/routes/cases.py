@@ -141,6 +141,8 @@ async def upload_documents(
         max_file_bytes=settings.max_upload_mb * 1024 * 1024,
     )
     store.load_manifest(settings.cases_dir, case_id)  # 404 before reading any upload
+    if len(files) > limits.max_documents:
+        raise TooLarge(f"at most {limits.max_documents} files per case")
     documents: list[Document] = []
     for upload in files:
         data = await upload.read(limits.max_file_bytes + 1)  # never read more than the limit

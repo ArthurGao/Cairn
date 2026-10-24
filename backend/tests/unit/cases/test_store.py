@@ -250,3 +250,19 @@ def test_a_document_never_ingested_is_a_gap(case: Path) -> None:
     assert [(g.doc_id, g.kind, g.reason) for g in build_gaps(store.load_manifest(case, "C1"))] == [
         ("D1", "failed", "document was not ingested")
     ]
+
+
+def test_a_signed_off_check_is_closed(case: Path) -> None:
+    result = _result(
+        items=[ItemResult(finding_id="i1", item_id="a", status="checked", finding="ok")], gaps=[]
+    )
+    store.write_result(case, result)
+    store.sign_off(case, result, "A. Adviser", NOW)
+    for attempt in (
+        lambda: store.record_review(case, result, "i1", "reopened", None, "B", NOW),
+        lambda: store.sign_off(case, result, "B", NOW),
+    ):
+        with pytest.raises(CairnError) as info:
+            attempt()
+        assert (info.value.code, info.value.status) == ("signed_off", 409)
+    assert [e.action for e in store.read_audit(case, "C1")] == ["signed_off"]

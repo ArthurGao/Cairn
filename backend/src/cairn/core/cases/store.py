@@ -317,8 +317,18 @@ def record_review(
         adviser=_adviser(adviser),
     )
     with _locked(cases_dir, result.case_id) as root:
+        _refuse_if_signed_off(cases_dir, result)
         _append(root, entry)
     return entry
+
+
+def _refuse_if_signed_off(cases_dir: Path, result: CheckResult) -> None:
+    """A signed-off check is closed: the record an adviser signed must not change after."""
+    if entry := signed_off(read_audit(cases_dir, result.case_id), result.check_id):
+        raise Conflict(
+            f"check {result.check_id} was signed off by {entry.adviser}; run a new check instead",
+            code="signed_off",
+        )
 
 
 def _adviser(name: str) -> str:
@@ -330,6 +340,7 @@ def _adviser(name: str) -> str:
 def sign_off(cases_dir: Path, result: CheckResult, adviser: str, now: datetime) -> AuditEntry:
     adviser = _adviser(adviser)
     with _locked(cases_dir, result.case_id) as root:
+        _refuse_if_signed_off(cases_dir, result)
         blockers = signoff_blockers(result, read_audit(cases_dir, result.case_id))
         if blockers:
             raise Conflict(

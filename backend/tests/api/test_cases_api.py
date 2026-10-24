@@ -214,3 +214,25 @@ async def test_unknown_check_is_404(api: httpx.AsyncClient) -> None:
     case_id = await _case(api)
     response = await api.get(f"/api/cases/{case_id}/checks/01NOCHECK")
     assert (response.status_code, response.json()["error"]["code"]) == (404, "check_not_found")
+
+
+async def test_upload_request_size_is_capped_before_parsing(api: httpx.AsyncClient) -> None:
+    case_id = await _case(api)
+    # 1 MB per file and 100 documents per case: a declared body far over the total is refused.
+    response = await api.post(
+        f"/api/cases/{case_id}/documents",
+        content=b"x" * 10,
+        headers={
+            "content-type": "multipart/form-data; boundary=b",
+            "content-length": str(500 * 1024 * 1024),
+        },
+    )
+    assert (response.status_code, response.json()["error"]["code"]) == (413, "case_too_large")
+
+
+async def test_too_many_files_in_one_request(api: httpx.AsyncClient, settings: Settings) -> None:
+    case_id = await _case(api)
+    files = [("files", (f"n{i}.md", b"# note")) for i in range(settings.max_documents_per_case + 1)]
+    response = await api.post(f"/api/cases/{case_id}/documents", files=files)
+    assert (response.status_code, response.json()["error"]["code"]) == (413, "case_too_large")
+    assert (await api.get(f"/api/cases/{case_id}")).json()["manifest"]["documents"] == []
