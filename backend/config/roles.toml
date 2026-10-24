@@ -1,0 +1,46 @@
+# Role -> vendor / model / effort / max_tokens (design §10.2). Env overrides per field:
+# CAIRN_ROLE_<ROLE>_<FIELD>, e.g. CAIRN_ROLE_CASE_EXTRACT_FACTS_MODEL. CAIRN_LLM_VENDOR=fake
+# forces every role onto the fake vendor. Gateway model ids come from
+# GET https://ai-gateway.vercel.sh/v1/models (note the dot: claude-sonnet-5.5).
+
+[roles."case.extract_facts"]
+vendor = "gateway"
+model = "anthropic/claude-sonnet-5.5"
+effort = "medium"
+max_tokens = 16000
+
+[roles."case.compare_facts"]
+vendor = "gateway"
+model = "anthropic/claude-sonnet-5.5"
+effort = "medium"
+max_tokens = 8000
+
+[roles."case.check_item"]
+vendor = "gateway"
+model = "anthropic/claude-sonnet-5.5"
+effort = "medium"
+max_tokens = 8000
+
+[roles."document.transcribe"]
+vendor = "gateway"
+model = "anthropic/claude-sonnet-5.5"
+effort = "low"
+max_tokens = 8000
+
+[roles."agent.main"]
+vendor = "gateway"
+model = "anthropic/claude-sonnet-5.5"
+effort = "medium"
+max_tokens = 8000
+
+[roles."memory.extract"]
+vendor = "gateway"
+model = "anthropic/claude-sonnet-5.5"
+effort = "medium"
+max_tokens = 8000
+
+[roles."memory.consolidate"]
+vendor = "gateway"
+model = "anthropic/claude-sonnet-5.5"
+effort = "low"
+max_tokens = 4000

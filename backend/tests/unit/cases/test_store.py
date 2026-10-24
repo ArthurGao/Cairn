@@ -243,3 +243,10 @@ def test_gaps_coverage_and_clean(case: Path) -> None:
     )
     assert not is_clean(_result(kind="consistency", items=[], gaps=[], conflicts=[conflict]))
     assert is_clean(_result(kind="consistency", items=[], gaps=[]))
+
+
+def test_a_document_never_ingested_is_a_gap(case: Path) -> None:
+    _upload(case, "D1", "tenancy.pdf")
+    assert [(g.doc_id, g.kind, g.reason) for g in build_gaps(store.load_manifest(case, "C1"))] == [
+        ("D1", "failed", "document was not ingested")
+    ]

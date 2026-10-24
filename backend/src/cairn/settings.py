@@ -8,7 +8,7 @@ from datetime import timedelta
 from pathlib import Path
 from typing import TYPE_CHECKING, Literal
 
-from pydantic import Field, SecretStr, model_validator
+from pydantic import Field, SecretStr, field_validator, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 if TYPE_CHECKING:
@@ -40,6 +40,8 @@ class Settings(BaseSettings):
         default=SecretStr(""), validation_alias="ANTHROPIC_API_KEY"
     )
     llm_vendor: str = ""
+    roles_file: Path = Path("config/roles.toml")
+    fake_scenario: Path | None = None
 
     # Temporal and API
     temporal_address: str = "localhost:7233"
@@ -70,6 +72,11 @@ class Settings(BaseSettings):
     dup_body_threshold: float = 0.70
     review_timeout: timedelta = timedelta(days=6)
     auto_apply_mechanical: bool = True
+
+    @field_validator("fake_scenario", mode="before")
+    @classmethod
+    def _empty_is_unset(cls, value: object) -> object:
+        return None if value == "" else value
 
     @property
     def skill_mounts(self) -> tuple[Path, ...]:

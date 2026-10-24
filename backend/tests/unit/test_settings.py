@@ -40,3 +40,10 @@ def test_review_timeout_parses_iso_duration(
     monkeypatch.setenv("CAIRN_REVIEW_TIMEOUT", "P6D")
     settings = make_settings(tmp_path / "h", tmp_path / "c")
     assert settings.review_timeout.total_seconds() == 6 * 24 * 3600
+
+
+def test_empty_fake_scenario_means_unset(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("CAIRN_FAKE_SCENARIO", "")
+    assert make_settings(tmp_path / "h", tmp_path / "c").fake_scenario is None
+    monkeypatch.setenv("CAIRN_FAKE_SCENARIO", "s.json")
+    assert make_settings(tmp_path / "h", tmp_path / "c").fake_scenario == Path("s.json")

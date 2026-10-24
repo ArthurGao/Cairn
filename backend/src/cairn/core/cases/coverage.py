@@ -1,15 +1,25 @@
 """What a check could not read is reported, never treated as clean (§8.5, §8.7, D-08)."""
 
+from collections.abc import Mapping
+
 from cairn.core.cases.models import CheckResult, Coverage, Gap, Manifest
 
 
-def build_gaps(manifest: Manifest) -> list[Gap]:
-    """One gap per failed document and one per document with unreadable pages (ids `g1…`)."""
+def build_gaps(manifest: Manifest, check_failures: Mapping[str, str] | None = None) -> list[Gap]:
+    """One gap per failed document and one per document with unreadable pages (ids `g1…`).
+
+    `check_failures` are documents ingested fine whose check step failed (e.g. extraction).
+    """
+    failures = check_failures or {}
     found: list[dict[str, object]] = []
     for doc in manifest.documents:
         unreadable = [p.n for p in doc.pages if p.method == "unreadable"]
-        if doc.status == "failed":
-            reason = doc.error or "document could not be ingested"
+        if doc.status != "ingested" or doc.doc_id in failures:
+            reason = (
+                doc.error
+                or failures.get(doc.doc_id)
+                or ("document was not ingested" if doc.status == "pending" else "ingest failed")
+            )
             found.append({"doc_id": doc.doc_id, "kind": "failed", "reason": reason})
         elif unreadable:
             reason = f"{doc.filename}: {len(unreadable)} page(s) could not be read"

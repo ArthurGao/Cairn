@@ -154,6 +154,7 @@ class CallRecord(BaseModel):
     model: str
     tokens_in: int
     tokens_out: int
+    prompt_version: str = ""
 
 
 class ChecklistRef(BaseModel):

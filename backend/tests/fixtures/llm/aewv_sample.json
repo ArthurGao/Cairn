@@ -1,0 +1,356 @@
+[
+  {
+    "role": "document.transcribe",
+    "match": "Document: passport-scan.png",
+    "repeat": true,
+    "reply": {
+      "data": {
+        "readable": true,
+        "text": "SAMPLE PASSPORT - NOT A REAL DOCUMENT\nSurname: SAMPLE\nGiven names: ALEX\nDate of birth: 12 APR 1990\nPassport no: XS0000001\nDate of expiry: 01 MAR 2031"
+      },
+      "tokens_in": 1200,
+      "tokens_out": 60
+    }
+  },
+  {
+    "role": "document.transcribe",
+    "match": "Document: unreadable-photo.jpg",
+    "repeat": true,
+    "reply": {
+      "data": {
+        "readable": false,
+        "reason": "The image is noise; no text is visible"
+      },
+      "tokens_in": 1100,
+      "tokens_out": 20
+    }
+  },
+  {
+    "role": "case.extract_facts",
+    "match": "Document: questionnaire.pdf",
+    "repeat": true,
+    "reply": {
+      "data": {
+        "facts": [
+          {
+            "category": "identity.name",
+            "subject": "applicant",
+            "value": "Alex Sample",
+            "normalised": "Alex Sample",
+            "page": 1,
+            "quote": "Full name: Alex Sample"
+          },
+          {
+            "category": "identity.date_of_birth",
+            "subject": "applicant",
+            "value": "12/04/1990",
+            "normalised": "1990-04-12",
+            "page": 1,
+            "quote": "Date of birth: 12/04/1990"
+          },
+          {
+            "category": "address.period",
+            "subject": "applicant",
+            "qualifier": "12 Example Street, Hamilton 3200",
+            "value": "since 01/2021",
+            "normalised": "2021-01/..",
+            "page": 1,
+            "quote": "Living at this address since: 01/2021"
+          },
+          {
+            "category": "employment.period",
+            "subject": "applicant",
+            "qualifier": "Example Freight Ltd",
+            "value": "since 03/2022",
+            "normalised": "2022-03/..",
+            "page": 2,
+            "quote": "Start date: 03/2022"
+          },
+          {
+            "category": "employment.role",
+            "subject": "applicant",
+            "qualifier": "Example Freight Ltd",
+            "value": "Warehouse Supervisor",
+            "normalised": "Warehouse Supervisor",
+            "page": 2,
+            "quote": "Role: Warehouse Supervisor"
+          }
+        ]
+      },
+      "tokens_in": 900,
+      "tokens_out": 300
+    }
+  },
+  {
+    "role": "case.extract_facts",
+    "match": "Document: employer-letter.pdf",
+    "repeat": true,
+    "reply": {
+      "data": {
+        "facts": [
+          {
+            "category": "employment.period",
+            "subject": "applicant",
+            "qualifier": "Example Freight Ltd",
+            "value": "since 1 June 2022",
+            "normalised": "2022-06-01/..",
+            "page": 1,
+            "quote": "as Warehouse Supervisor since 1 June 2022"
+          },
+          {
+            "category": "employment.role",
+            "subject": "applicant",
+            "qualifier": "Example Freight Ltd",
+            "value": "Warehouse Supervisor",
+            "normalised": "Warehouse Supervisor",
+            "page": 1,
+            "quote": "employed by Example Freight Ltd as Warehouse Supervisor"
+          }
+        ]
+      },
+      "tokens_in": 900,
+      "tokens_out": 300
+    }
+  },
+  {
+    "role": "case.extract_facts",
+    "match": "Document: application-form.pdf",
+    "repeat": true,
+    "reply": {
+      "data": {
+        "facts": [
+          {
+            "category": "identity.name",
+            "subject": "applicant",
+            "value": "Alex Sample",
+            "normalised": "Alex Sample",
+            "page": 1,
+            "quote": "Family name: Sample Given names: Alex"
+          },
+          {
+            "category": "identity.date_of_birth",
+            "subject": "applicant",
+            "value": "12 April 1990",
+            "normalised": "1990-04-12",
+            "page": 1,
+            "quote": "Date of birth: 12 April 1990"
+          },
+          {
+            "category": "address.period",
+            "subject": "applicant",
+            "qualifier": "12 Example Street, Hamilton 3200",
+            "value": "from January 2021",
+            "normalised": "2021-01/..",
+            "page": 1,
+            "quote": "12 Example Street, Hamilton 3200, from January 2021"
+          },
+          {
+            "category": "employment.period",
+            "subject": "applicant",
+            "qualifier": "Example Freight Ltd",
+            "value": "June 2022",
+            "normalised": "2022-06/..",
+            "page": 2,
+            "quote": "Employment start: June 2022"
+          },
+          {
+            "category": "employment.role",
+            "subject": "applicant",
+            "qualifier": "Example Freight Ltd",
+            "value": "Warehouse Supervisor",
+            "normalised": "Warehouse Supervisor",
+            "page": 2,
+            "quote": "Job title: Warehouse Supervisor"
+          }
+        ]
+      },
+      "tokens_in": 900,
+      "tokens_out": 300
+    }
+  },
+  {
+    "role": "case.extract_facts",
+    "match": "Document: tenancy.pdf",
+    "repeat": true,
+    "reply": {
+      "data": {
+        "facts": [
+          {
+            "category": "identity.name",
+            "subject": "applicant",
+            "value": "Alex Sample",
+            "normalised": "Alex Sample",
+            "page": 1,
+            "quote": "Tenant: Alex Sample"
+          },
+          {
+            "category": "address.period",
+            "subject": "applicant",
+            "qualifier": "12 Example Street, Hamilton 3200",
+            "value": "from 1 May 2021",
+            "normalised": "2021-05-01/..",
+            "page": 1,
+            "quote": "Tenancy start date: 1 May 2021"
+          }
+        ]
+      },
+      "tokens_in": 900,
+      "tokens_out": 300
+    }
+  },
+  {
+    "role": "case.extract_facts",
+    "match": "Document: cover-letter.pdf",
+    "repeat": true,
+    "reply": {
+      "data": {
+        "facts": []
+      },
+      "tokens_in": 900,
+      "tokens_out": 300
+    }
+  },
+  {
+    "role": "case.extract_facts",
+    "match": "Document: passport-scan.png",
+    "repeat": true,
+    "reply": {
+      "data": {
+        "facts": []
+      },
+      "tokens_in": 900,
+      "tokens_out": 300
+    }
+  },
+  {
+    "role": "case.compare_facts",
+    "match": "Facts:",
+    "repeat": true,
+    "reply": {
+      "data": {
+        "conflicts": [
+          {
+            "fact_ids": [
+              "f4",
+              "f6"
+            ],
+            "summary": "Job start date differs between the questionnaire and the employer letter",
+            "question": "The questionnaire gives March 2022 and the employer letter gives 1 June 2022 as the start date. Which is correct?"
+          }
+        ]
+      },
+      "tokens_in": 1500,
+      "tokens_out": 120
+    }
+  },
+  {
+    "role": "case.check_item",
+    "match": "- passport-present:",
+    "repeat": true,
+    "reply": {
+      "data": {
+        "results": [
+          {
+            "item_id": "passport-present",
+            "status": "checked",
+            "finding": "Passport bio page present and legible",
+            "citations": [
+              {
+                "doc_id": "passport-scan",
+                "page": 1,
+                "quote": "Passport no: XS0000001"
+              }
+            ]
+          },
+          {
+            "item_id": "names-match",
+            "status": "checked",
+            "finding": "Alex Sample on the passport and the application form",
+            "citations": [
+              {
+                "doc_id": "application-form",
+                "page": 1,
+                "quote": "Family name: Sample Given names: Alex"
+              }
+            ]
+          },
+          {
+            "item_id": "job-offer-present",
+            "status": "pending",
+            "finding": "No signed job offer or employment agreement; the employer letter confirms employment but is not an offer",
+            "citations": [
+              {
+                "doc_id": "employer-letter",
+                "page": 1,
+                "quote": "This is a permanent full-time position."
+              }
+            ]
+          },
+          {
+            "item_id": "forms-signed-dated",
+            "status": "checked",
+            "finding": "The application form is signed and dated",
+            "citations": [
+              {
+                "doc_id": "application-form",
+                "page": 2,
+                "quote": "Applicant signature: [signed] Date: 20 October 2026"
+              }
+            ]
+          },
+          {
+            "item_id": "translations-present",
+            "status": "checked",
+            "finding": "All documents are in English",
+            "citations": []
+          }
+        ]
+      },
+      "tokens_in": 4000,
+      "tokens_out": 400
+    }
+  },
+  {
+    "role": "case.check_item",
+    "match": "- referenced-attachments-exist:",
+    "repeat": true,
+    "reply": {
+      "data": {
+        "results": [
+          {
+            "item_id": "referenced-attachments-exist",
+            "status": "pending",
+            "finding": "The cover letter cites Appendix 7 (police certificate), which is not in the case",
+            "citations": [
+              {
+                "doc_id": "cover-letter",
+                "page": 1,
+                "quote": "Appendix 7 police certificate."
+              }
+            ]
+          },
+          {
+            "item_id": "police-certificates",
+            "status": "unable",
+            "finding": "No police certificate is in the case; whether one is required is the adviser's call",
+            "citations": []
+          },
+          {
+            "item_id": "client-promised-documents",
+            "status": "pending",
+            "finding": "The questionnaire lists a police certificate to follow; it has not arrived",
+            "citations": [
+              {
+                "doc_id": "questionnaire",
+                "page": 2,
+                "quote": "Documents to follow: police certificate"
+              }
+            ]
+          }
+        ]
+      },
+      "tokens_in": 4000,
+      "tokens_out": 300
+    }
+  }
+]

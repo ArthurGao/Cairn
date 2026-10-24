@@ -56,7 +56,7 @@ directly (it has its own `AGENTS.md` for the *runtime* agent). Never put repo in
 | Command | What |
 | --- | --- |
 | `cp backend/.env.example backend/.env && cp frontend/.env.example frontend/.env.local` | First-time setup; fill `AI_GATEWAY_API_KEY` in `backend/.env`. Env files are gitignored; only `.env.example` is committed |
-| `make dev` | Temporal dev server (7233, UI 8233) + API (4700) + web (4710); the worker joins in M2 |
+| `make dev` | Temporal dev server (7233, UI 8233) + worker + API (4700) + web (4710) |
 | `make check` | Every gate below; must exit 0 before you say a task is done |
 | `make test` | backend `pytest` + frontend `vitest` + Playwright (mocked API) |
 | `make e2e-full` | Playwright against the real stack with the `fake` LLM vendor |

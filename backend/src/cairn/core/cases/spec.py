@@ -15,6 +15,7 @@ from cairn.errors import Invalid
 FACT_CATEGORIES = Path("references/fact-categories.md")
 CHECKLIST = Path("references/checklist.yaml")
 PRESUBMISSION_PREFIX = "presubmission-"
+CONSISTENCY_SKILL = "case-consistency-check"
 
 Kind = Literal["date", "period", "text"]
 _PREFIX_KINDS: tuple[Kind, ...] = ("period", "date")

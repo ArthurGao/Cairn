@@ -1,12 +1,125 @@
 {
-  "_comment": "Expected outcomes for the sample case. Fact ids are assigned in document order: questionnaire f1-f5, employer-letter f6-f7, application-form f8-f12, tenancy f13-f14.",
+  "_comment": "Expected outcomes for the sample case uploaded with doc_id = filename stem in this order: questionnaire, employer-letter, application-form, tenancy, cover-letter, passport-scan, unreadable-photo. Fact ids follow manifest order: questionnaire f1-f5, employer-letter f6-f7, application-form f8-f12, tenancy f13-f14. Model replies come from tests/fixtures/llm/aewv_sample.json.",
   "facts_accepted": 14,
   "rule_conflicts": [
-    ["f3", "f10", "f14"],
-    ["f4", "f6", "f11"]
+    [
+      "f3",
+      "f10",
+      "f14"
+    ],
+    [
+      "f4",
+      "f6",
+      "f11"
+    ]
   ],
   "no_conflict_for": [
     "identity.date_of_birth: 12/04/1990 vs 12 April 1990",
     "employment.period: 1 June 2022 (letter) vs June 2022 (form), month precision"
+  ],
+  "upload_order": [
+    "questionnaire.pdf",
+    "employer-letter.pdf",
+    "application-form.pdf",
+    "tenancy.pdf",
+    "cover-letter.pdf",
+    "passport-scan.png",
+    "unreadable-photo.jpg"
+  ],
+  "coverage": {
+    "documents": 7,
+    "documents_failed": 0,
+    "pages": 9,
+    "pages_transcribed": 1,
+    "pages_unreadable": 1,
+    "facts_accepted": 14,
+    "facts_dropped": 0
+  },
+  "conflicts": [
+    {
+      "finding_id": "c1",
+      "fact_ids": [
+        "f3",
+        "f10",
+        "f14"
+      ],
+      "origin": [
+        "rule"
+      ],
+      "drafted_by": "template"
+    },
+    {
+      "finding_id": "c2",
+      "fact_ids": [
+        "f4",
+        "f6",
+        "f11"
+      ],
+      "origin": [
+        "rule",
+        "model"
+      ],
+      "drafted_by": "model"
+    }
+  ],
+  "gaps": [
+    {
+      "finding_id": "g1",
+      "doc_id": "unreadable-photo",
+      "kind": "unreadable",
+      "pages": [
+        1
+      ]
+    }
+  ],
+  "items": [
+    [
+      "i1",
+      "passport-present",
+      "checked",
+      null
+    ],
+    [
+      "i2",
+      "names-match",
+      "checked",
+      null
+    ],
+    [
+      "i3",
+      "job-offer-present",
+      "pending",
+      null
+    ],
+    [
+      "i4",
+      "forms-signed-dated",
+      "checked",
+      null
+    ],
+    [
+      "i5",
+      "translations-present",
+      "pending",
+      "no_valid_citation"
+    ],
+    [
+      "i6",
+      "referenced-attachments-exist",
+      "pending",
+      null
+    ],
+    [
+      "i7",
+      "police-certificates",
+      "unable",
+      null
+    ],
+    [
+      "i8",
+      "client-promised-documents",
+      "pending",
+      null
+    ]
   ]
 }

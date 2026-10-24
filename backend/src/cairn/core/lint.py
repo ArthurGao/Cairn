@@ -12,7 +12,7 @@ from typing import Literal
 
 from pydantic import BaseModel, Field
 
-from cairn.core.cases.spec import SpecInvalid, list_checklists, load_categories
+from cairn.core.cases.spec import CONSISTENCY_SKILL, SpecInvalid, list_checklists, load_categories
 from cairn.core.formats import Severity
 from cairn.core.index import (
     Broken,
@@ -29,7 +29,6 @@ from cairn.core.tokens import estimate_tokens
 from cairn.core.usage import UsageEntry
 from cairn.core.writer import text_hash
 
-CONSISTENCY_SKILL = "case-consistency-check"
 _SEVERITY_ORDER: dict[Severity, int] = {"error": 0, "warn": 1, "info": 2}
 
 

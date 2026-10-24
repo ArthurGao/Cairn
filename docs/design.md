@@ -721,7 +721,8 @@ limits of §8.2; if the estimate exceeds `case_context_budget`, the model pass i
 - A failure in `compare` (model pass) keeps the rule baseline and records the error (§8.4).
 - A failure in `check_items` for a batch marks those items `unable`, `downgraded: "call_failed"`.
 - `load_check_spec` failure, the data-class gate (§10.4) or `case_too_large_for_v1` fails the
-  whole check with `status: failed` and the reason; nothing partial is written as a result.
+  whole check: the result is written with `status: failed`, the reason in `error` and no findings
+  at all (never a partial list that could read as complete).
 
 ## 9. Cross-tool reuse
 
