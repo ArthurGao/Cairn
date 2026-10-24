@@ -39,6 +39,8 @@ backend/
     llm/
       roles.py                      # Role enum, config loading, startup validation
       client.py                     # call(role, messages, tools?, schema?) -> LlmResult
+      schema.py                     # Pydantic schema -> strict schema both vendors accept
+      validate.py                   # startup check of gateway model ids and tags
       vendors/anthropic.py          # Anthropic Messages adapter (direct API and gateway anthropic/*)
       vendors/openai.py             # OpenAI Chat Completions adapter (gateway openai/*)
       vendors/gateway.py            # picks the adapter by model prefix; gateway base URL + key

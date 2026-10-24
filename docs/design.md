@@ -636,7 +636,8 @@ never read env). Activities that call a model bound their own concurrency to `co
 
 - Idempotent by `sha256`: a document whose page files already carry its `source_sha256` is skipped.
 - PDF: each page's text layer via `pypdfium2`; a page under `min_page_chars` is rendered to PNG
-  (150 dpi) and sent to `document.transcribe`. PNG/JPEG: one page, transcribed. Text/Markdown: one
+  (144 dpi, or 72 dpi when that would exceed 25 megapixels; a page too large even then is
+  `unreadable` without a model call) and sent to `document.transcribe`. PNG/JPEG: one page, transcribed. Text/Markdown: one
   page, `method: text`.
 - `document.transcribe` returns `{readable: bool, text, reason?}` (structured). `readable: false`
   → `method: unreadable` with the reason. A vendor failure after retries marks the document
@@ -777,7 +778,9 @@ the id's prefix (D-12):
 | anything else | — | rejected at startup in v1 |
 
 So the gateway and the direct `anthropic` vendor share one Anthropic adapter (only the base URL
-and key differ), and GPT models are reachable only through the gateway in v1.
+and key differ — the Anthropic SDK 2.x sends the key as a bearer token on both), and GPT models are
+reachable only through the gateway in v1. SDK retries are off in both adapters: Temporal retries
+the activity, guided by the error class (§10.3).
 
 ### 10.2 Roles
 

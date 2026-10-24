@@ -5,6 +5,8 @@ from collections.abc import Mapping
 from pathlib import Path
 from typing import Protocol
 
+import httpx2
+
 from cairn.llm.roles import ConfigError, Role, RoleConfig, load_roles
 from cairn.llm.types import LlmError, LlmRequest, LlmResult
 from cairn.settings import Settings
@@ -44,16 +46,34 @@ class LlmClient:
         return result
 
 
-def build_client(settings: Settings, env: Mapping[str, str] | None = None) -> LlmClient:
-    """Roles from config + env; vendors constructed for the roles that use them."""
+def build_client(
+    settings: Settings,
+    env: Mapping[str, str] | None = None,
+    http_client: httpx2.AsyncClient | None = None,
+) -> LlmClient:
+    """Roles from config + env; a vendor is built only when some role uses it, and a
+    configured vendor without its key stops startup (design §10.3)."""
+    from cairn.llm.vendors.anthropic import AnthropicAdapter
     from cairn.llm.vendors.fake import FakeVendor
+    from cairn.llm.vendors.gateway import GatewayVendor
 
     roles = load_roles(
         settings.roles_file, env if env is not None else os.environ, settings.llm_vendor
     )
+    used = {c.vendor for c in roles.values()}
     vendors: dict[str, Vendor] = {}
-    if any(c.vendor == "fake" for c in roles.values()):
+    if "fake" in used:
         if settings.fake_scenario is None:
             raise ConfigError("the fake vendor needs CAIRN_FAKE_SCENARIO (a scenario JSON file)")
         vendors["fake"] = FakeVendor(Path(settings.fake_scenario))
+    if "gateway" in used:
+        key = settings.ai_gateway_api_key.get_secret_value()
+        if not key:
+            raise ConfigError("roles use the gateway but AI_GATEWAY_API_KEY is not set")
+        vendors["gateway"] = GatewayVendor(key, http_client)
+    if "anthropic" in used:
+        key = settings.anthropic_api_key.get_secret_value()
+        if not key:
+            raise ConfigError("roles use the anthropic vendor but ANTHROPIC_API_KEY is not set")
+        vendors["anthropic"] = AnthropicAdapter("anthropic", key, None, http_client)
     return LlmClient(roles, vendors)

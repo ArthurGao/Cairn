@@ -75,6 +75,7 @@ from cairn.workflows.case_models import (
 )
 
 RENDER_SCALE = 2  # 144 dpi: enough for a model to read a scanned page
+MAX_RENDER_PIXELS = 25_000_000  # larger renders risk memory exhaustion (a crafted PDF)
 
 
 class _Transcription(BaseModel):
@@ -310,7 +311,23 @@ class CaseActivities:
                         )
                     )
                     continue
-                image = page.render(scale=RENDER_SCALE).to_pil()
+                width, height = page.get_size()
+                scale = next(
+                    (s for s in (RENDER_SCALE, 1) if width * height * s * s <= MAX_RENDER_PIXELS),
+                    None,
+                )
+                if scale is None:  # a render this size could exhaust memory; never guess
+                    keep(
+                        Page(
+                            doc_id=doc.doc_id,
+                            page=index + 1,
+                            method="unreadable",
+                            source_sha256=doc.sha256,
+                            reason=f"page is too large to render ({width:.0f} x {height:.0f} pt)",
+                        )
+                    )
+                    continue
+                image = page.render(scale=scale).to_pil()
                 buffer = BytesIO()
                 image.save(buffer, format="PNG")
                 keep(

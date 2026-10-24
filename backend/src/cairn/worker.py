@@ -15,6 +15,7 @@ from cairn import temporal
 from cairn.activities.cases import CaseActivities
 from cairn.llm.client import LlmClient, build_client
 from cairn.llm.roles import ConfigError, data_class_problem
+from cairn.llm.validate import validate_models
 from cairn.settings import Settings
 from cairn.workflows.case_check import CaseCheckWorkflow
 
@@ -45,6 +46,7 @@ async def main() -> None:
     settings = Settings()
     llm = build_client(settings, os.environ)
     validate_startup(settings, llm)
+    await validate_models(llm.roles)
     settings.cases_dir.mkdir(parents=True, exist_ok=True)
     client = await temporal.connect(settings)
     log.info("worker polling %s on %s", settings.task_queue, settings.temporal_address)

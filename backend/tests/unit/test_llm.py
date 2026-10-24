@@ -267,3 +267,29 @@ async def test_domain_errors_are_not_retried(home: Path, cases_dir: Path, tmp_pa
     with pytest.raises(ApplicationError) as info:
         await acts.extract_facts(ExtractInput(case_id="nope", doc_id="d", map_budget=10))
     assert (info.value.type, info.value.non_retryable) == ("case_not_found", True)
+
+
+async def test_oversized_pages_are_not_rendered(
+    home: Path, cases_dir: Path, tmp_path: Path
+) -> None:
+    from reportlab.pdfgen.canvas import Canvas
+
+    pdf = tmp_path / "poster.pdf"
+    canvas = Canvas(str(pdf), pagesize=(14000, 14000), invariant=1)  # ~194 in square, no text
+    canvas.showPage()
+    canvas.save()
+    settings = make_settings(
+        home, cases_dir, llm_vendor="fake", fake_scenario=_scenario(tmp_path, [])
+    )
+    acts = CaseActivities(settings, build_client(settings, env={}))
+    store.create_case(cases_dir, "C1", "x", "synthetic", NOW)
+    limits = store.CaseLimits(max_documents=10, max_file_bytes=10_000_000)
+    store.add_document(cases_dir, "C1", "poster", "poster.pdf", pdf.read_bytes(), NOW, limits)
+    job = IngestInput(case_id="C1", doc_id="poster", min_page_chars=40, max_pages_per_case=500)
+    outcome = await acts.ingest_document(job)  # the empty scenario fails any model call
+    assert (outcome.status, outcome.calls) == ("ingested", [])
+    page = store.read_page(cases_dir, "C1", "poster", 1)
+    assert (page.method, page.reason) == (
+        "unreadable",
+        "page is too large to render (14000 x 14000 pt)",
+    )
