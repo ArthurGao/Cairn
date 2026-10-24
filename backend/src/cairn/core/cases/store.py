@@ -15,7 +15,7 @@ from pathlib import Path
 import yaml
 from filelock import FileLock
 
-from cairn.core.atomic import write_bytes_atomic, write_text_atomic
+from cairn.core.atomic import append_line_durable, write_bytes_atomic, write_text_atomic
 from cairn.core.cases.models import (
     AuditEntry,
     CheckResult,
@@ -244,9 +244,7 @@ def signoff_blockers(result: CheckResult, audit: list[AuditEntry]) -> list[str]:
 
 
 def _append(root: Path, entry: AuditEntry) -> None:
-    path = root / "_audit.jsonl"
-    with path.open("a", encoding="utf-8") as handle:
-        handle.write(entry.model_dump_json() + "\n")
+    append_line_durable(root / "_audit.jsonl", entry.model_dump_json())
 
 
 def record_review(

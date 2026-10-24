@@ -253,6 +253,11 @@ whose entries carry `undo_of`. Each entry's inverse:
 
 So undoing a merge restores the target's old text *and* un-archives the other members together.
 
+Two edge cases: an `archive` onto a slug that already has `_archive/<slug>.md` is a `conflict`
+(an archived version is never overwritten); and an `update` whose log line was written only after a
+crash (§6.4 step 2a) has `before: null` — its old text is gone — so undoing its group returns 409
+`not_undoable` instead of guessing.
+
 ### 4.6 Run record — `state/runs/<date>-<run_id>.md`
 
 ```markdown
@@ -376,8 +381,11 @@ per §4.2 with `omitted_index_lines` set.
 
 - Token counts are **estimates** (`ceil(chars / 3.5)`, deliberately conservative). Real usage comes
   from the vendor's response and is recorded per call; the UI labels which is which.
-- `build_context` returns a `ContextBreakdown` (tokens per part) and the **baseline**: the
-  estimated tokens if every memory body and every SKILL.md body were loaded eagerly. The run
+- `build_context` returns a `ContextBreakdown` (tokens per part) and the **baseline**:
+  `baseline_all = AGENTS.md + every memory body + every SKILL.md body` (estimated tokens), i.e. the
+  cost of loading everything eagerly instead of through indexes. The memory index in L0 is rendered
+  from the memory files (the same rendering as `MEMORY.md`), so a hand-edited `MEMORY.md` cannot
+  put stale lines in front of the agent; drift is a lint finding. The run
   timeline shows `l0 + loaded` against `baseline_all`. Compute it in code, test it with exact values
   on the fixture home.
 - The system prompt tells the model: the index is a table of contents; load a skill before doing
@@ -467,7 +475,9 @@ rule's code; other ops still proceed:
 | `conflict` | the file changed since the run read it (base hash mismatch, §6.4) |
 
 Accepted `create` ops get `created`/`updated`/`source_run` set by code; `update` ops keep `created`
-and unknown frontmatter keys and replace description/body. The model never sets dates.
+and unknown frontmatter keys and replace description/body. The model never sets dates. The rules
+live in `core.validate.plan_writeback` (one op group per accepted op, op id `<run_id>:<index>`);
+the writer's base-hash rejections come back as `conflict` via `conflict_rejections`.
 
 ### 6.4 Write protocol (shared by write-back, cleanup, undo, CLI)
 
@@ -483,7 +493,11 @@ all-or-nothing (a write-back op is a group of one; a merge is one group of `upda
       group** is rejected `conflict`; nothing in it is written.
 3. For each surviving op: write `<file>.tmp-<uuid>`, `fsync`, `os.replace` onto the target (archive
    = `os.replace` into `_archive/`), then immediately append its changelog line.
-4. Regenerate `MEMORY.md` once at the end (atomic), release the lock.
+4. If anything was applied, regenerate `MEMORY.md` once at the end (atomic); release the lock.
+
+`index_sync` is not an op in a group: `core.writer.sync_index` re-derives `MEMORY.md` under the
+lock when it drifted and logs one `index_sync` entry (never undoable). Memory slugs are checked
+(`^[a-z0-9]+(-[a-z0-9]+)*$`, ≤ 64) before any path is built, so no op can reach outside `memory/`.
 
 Step 2a makes the activity idempotent: Temporal may retry an activity that actually succeeded,
 and a crash between a file write and its log line is detected by content, not reported as a

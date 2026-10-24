@@ -21,3 +21,11 @@ def write_bytes_atomic(path: Path, data: bytes) -> None:
 
 def write_text_atomic(path: Path, text: str) -> None:
     write_bytes_atomic(path, text.encode("utf-8"))
+
+
+def append_line_durable(path: Path, line: str) -> None:
+    """Append one line to an append-only log and fsync it (callers hold the relevant lock)."""
+    with path.open("a", encoding="utf-8") as handle:
+        handle.write(line + "\n")
+        handle.flush()
+        os.fsync(handle.fileno())

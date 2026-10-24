@@ -6,10 +6,13 @@ workflow inputs (design §7.1, §8.1).
 
 from datetime import timedelta
 from pathlib import Path
-from typing import Literal
+from typing import TYPE_CHECKING, Literal
 
 from pydantic import Field, SecretStr, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
+
+if TYPE_CHECKING:
+    from cairn.core.lint import LintConfig
 
 
 class Settings(BaseSettings):
@@ -67,6 +70,22 @@ class Settings(BaseSettings):
     dup_body_threshold: float = 0.70
     review_timeout: timedelta = timedelta(days=6)
     auto_apply_mechanical: bool = True
+
+    @property
+    def skill_mounts(self) -> tuple[Path, ...]:
+        """Read-only skill sources from CAIRN_SKILL_PATHS (colon-separated)."""
+        return tuple(Path(p).expanduser() for p in self.skill_paths.split(":") if p)
+
+    def lint_config(self) -> "LintConfig":
+        from cairn.core.lint import LintConfig
+
+        return LintConfig(
+            memory_index_budget=self.memory_index_budget,
+            stale_days=self.stale_days,
+            dup_threshold=self.dup_threshold,
+            dup_body_threshold=self.dup_body_threshold,
+            skill_mounts=self.skill_mounts,
+        )
 
     @model_validator(mode="after")
     def _cases_dir_outside_home(self) -> "Settings":

@@ -26,7 +26,7 @@ backend/
       context.py                    # L0 prompt builder, ContextBreakdown, baseline (§5)
       tokens.py                     # estimate_tokens = ceil(chars / 3.5)
       writer.py                     # lock + base hash + atomic replace + changelog + undo (§6.4)
-      validate.py                   # write-back rule codes (§6.3)
+      validate.py                   # write-back rule codes (§6.3): plan_writeback, conflict_rejections
       lint.py                       # cleanup checks (§7.2)
       similarity.py  secrets.py  usage.py  models.py   # secrets.py also holds personal-data patterns
       cases/                        # case store (design §3.2, §4.7–§4.10, §8): still pure
