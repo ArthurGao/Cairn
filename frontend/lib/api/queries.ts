@@ -8,7 +8,15 @@ export const keys = {
   check: (caseId: string, checkId: string) => ["check", caseId, checkId] as const,
   checklists: ["checklists"] as const,
   page: (caseId: string, docId: string, n: number) => ["page", caseId, docId, n] as const,
+  runs: ["runs"] as const,
+  run: (runId: string) => ["run", runId] as const,
+  memory: ["memory"] as const,
+  memoryDetail: (slug: string) => ["memory", slug] as const,
+  context: ["context"] as const,
 };
+
+/** Every query a memory write can change (undo, write-back); `memory` prefixes each detail. */
+export const memoryKeys = [keys.memory, keys.context] as const;
 
 export async function getCase(caseId: string): Promise<Schemas["CaseDetail"]> {
   return unwrap(await api.GET("/api/cases/{case_id}", { params: { path: { case_id: caseId } } }));

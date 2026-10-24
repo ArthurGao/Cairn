@@ -74,6 +74,19 @@ def _scenario(tmp_path: Path, entries: list[dict[str, object]]) -> Path:
     return path
 
 
+async def test_fake_scenario_files_are_read_in_order(tmp_path: Path) -> None:
+    (tmp_path / "a").mkdir()
+    (tmp_path / "b").mkdir()
+    first = _scenario(tmp_path / "a", [{"role": "agent.main", "reply": {"text": "from a"}}])
+    second = _scenario(tmp_path / "b", [{"role": "agent.main", "reply": {"text": "from b"}}])
+    settings = make_settings(
+        tmp_path / "h", tmp_path / "c", llm_vendor="fake", fake_scenario=f"{first}:{second}"
+    )
+    client = build_client(settings, env={})
+    ask = LlmRequest(role=Role.AGENT_MAIN, messages=[Message.user("x")])
+    assert [(await client.call(ask)).text for _ in range(2)] == ["from a", "from b"]
+
+
 async def test_fake_vendor_matches_consumes_and_fails_loudly(tmp_path: Path) -> None:
     fake = FakeVendor(
         _scenario(

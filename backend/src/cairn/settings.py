@@ -79,6 +79,13 @@ class Settings(BaseSettings):
         return None if value == "" else value
 
     @property
+    def fake_scenarios(self) -> tuple[Path, ...]:
+        """CAIRN_FAKE_SCENARIO: one scenario file or several, colon-separated."""
+        if self.fake_scenario is None:
+            return ()
+        return tuple(Path(p) for p in str(self.fake_scenario).split(":") if p)
+
+    @property
     def skill_mounts(self) -> tuple[Path, ...]:
         """Read-only skill sources from CAIRN_SKILL_PATHS (colon-separated)."""
         return tuple(Path(p).expanduser() for p in self.skill_paths.split(":") if p)

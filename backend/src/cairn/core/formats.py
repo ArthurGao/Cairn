@@ -86,6 +86,11 @@ def _split(text: str) -> tuple[dict[str, Any], str]:
     return cast(dict[str, Any], front), body.removeprefix("\n")
 
 
+def parse_document(text: str) -> Document:
+    """Any frontmatter + body file (run records, §4.6)."""
+    return Document(*_split(text))
+
+
 def parse_memory(text: str) -> MemoryFile:
     return MemoryFile(*_split(text))
 
@@ -117,6 +122,11 @@ def _as_date(value: object) -> date | None:
         except ValueError:
             return None
     return None
+
+
+def type_rank(memory_type: str) -> int:
+    """Index and list order: user, feedback, project, reference, then anything invalid."""
+    return MEMORY_TYPES.index(memory_type) if memory_type in MEMORY_TYPES else len(MEMORY_TYPES)
 
 
 def _one_line(value: str) -> bool:

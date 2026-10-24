@@ -6,7 +6,6 @@ from dataclasses import dataclass
 from pathlib import Path
 
 from cairn.core.formats import (
-    MEMORY_TYPES,
     NAME,
     NAME_MAX,
     FormatError,
@@ -15,10 +14,12 @@ from cairn.core.formats import (
     SkillFile,
     parse_memory,
     parse_skill,
+    type_rank,
     validate_memory,
     validate_skill,
 )
-from cairn.errors import Invalid
+from cairn.core.tokens import estimate_tokens
+from cairn.errors import Invalid, NotFound
 
 MEMORY_DIR = "memory"
 INDEX_FILE = "MEMORY.md"
@@ -95,18 +96,31 @@ def title(memory: Memory) -> str:
     return words[:1].upper() + words[1:]
 
 
-def _type_rank(memory: Memory) -> int:
-    return MEMORY_TYPES.index(memory.file.type) if memory.file.type in MEMORY_TYPES else 99
+def by_type(memories: Sequence[Memory]) -> list[Memory]:
+    """Ordered by type (user, feedback, project, reference) then slug."""
+    return sorted(memories, key=lambda m: (type_rank(m.file.type), m.slug))
 
 
 def index_lines(memories: Sequence[Memory]) -> list[str]:
-    """One line per memory, ordered by type (user, feedback, project, reference) then slug."""
-    ordered = sorted(memories, key=lambda m: (_type_rank(m), m.slug))
-    return [f"- [{title(m)}]({m.slug}.md) — {m.file.description.strip()}" for m in ordered]
+    return [
+        f"- [{title(m)}]({m.slug}.md) — {m.file.description.strip()}" for m in by_type(memories)
+    ]
+
+
+def read_memory_text(home: Path, slug: str) -> str:
+    path = memory_path(home, slug)
+    if not path.is_file():
+        raise NotFound(f"no memory {slug}", code="memory_not_found")
+    return path.read_text(encoding="utf-8")
 
 
 def render_memory_index(memories: Sequence[Memory]) -> str:
     return INDEX_HEADING + "\n" + "".join(f"{line}\n" for line in index_lines(memories))
+
+
+def index_tokens(memories: Sequence[Memory]) -> int:
+    """What MEMORY.md costs in the always-loaded context (the §4.2 budget)."""
+    return estimate_tokens(render_memory_index(memories))
 
 
 def indexed_slugs(index_text: str) -> list[str]:
@@ -168,3 +182,29 @@ def skill_index_lines(skills: Sequence[Skill]) -> list[str]:
     return [
         f"- {s.name} — {s.file.description.strip()}" for s in sorted(skills, key=lambda s: s.name)
     ]
+
+
+def find_skill(home: Path, mounts: Sequence[Path], name: str) -> Skill:
+    skill = next((s for s in load_skills(home, mounts).skills if s.name == name), None)
+    if skill is None:
+        raise NotFound(f"no skill {name}", code="skill_not_found")
+    return skill
+
+
+def skill_references(skill: Skill) -> list[Path]:
+    """A skill's level-2 files, relative to the skill directory."""
+    return sorted(
+        p.relative_to(skill.path) for p in (skill.path / "references").rglob("*") if p.is_file()
+    )
+
+
+def read_skill_file(skill: Skill, relative: str) -> tuple[Path, str]:
+    """(path relative to the skill, text). Refuses anything resolving outside the skill
+    directory, symlinks included (§12)."""
+    root = skill.path.resolve()
+    target = (skill.path / relative).resolve()
+    if not target.is_relative_to(root) or not target.is_file():
+        raise NotFound(
+            f"{relative} is not a file inside skill {skill.name}", code="skill_file_not_found"
+        )
+    return target.relative_to(root), target.read_text(encoding="utf-8")

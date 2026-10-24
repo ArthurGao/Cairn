@@ -6,12 +6,10 @@ tests/fixtures/llm/aewv_sample.json, and replay of every produced history for de
 
 import json
 import uuid
-from collections.abc import AsyncIterator
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
-import pytest
 from temporalio.client import Client, WorkflowHistory
 from temporalio.contrib.pydantic import pydantic_data_converter
 from temporalio.testing import WorkflowEnvironment
@@ -31,17 +29,6 @@ SCENARIO = FIXTURES / "llm" / "aewv_sample.json"
 EXPECTED: dict[str, Any] = json.loads((SAMPLE / "expected.json").read_text())
 NOW = datetime(2026, 10, 24, 3, 0, tzinfo=UTC)
 LIMITS = store.CaseLimits(max_documents=100, max_file_bytes=20 * 1024 * 1024)
-
-
-@pytest.fixture(scope="session")
-async def env() -> AsyncIterator[WorkflowEnvironment]:
-    environment = await WorkflowEnvironment.start_time_skipping(
-        data_converter=pydantic_data_converter
-    )
-    try:
-        yield environment
-    finally:
-        await environment.shutdown()
 
 
 def _settings(home: Path, cases_dir: Path, scenario: Path = SCENARIO) -> Settings:

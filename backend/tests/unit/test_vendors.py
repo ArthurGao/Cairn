@@ -214,6 +214,22 @@ async def test_empty_system_is_never_sent() -> None:
     assert "format" not in anthropic_body["output_config"]
 
 
+async def test_cached_system_is_one_marked_block_on_anthropic_only() -> None:
+    seen: Seen = []
+    cached = _request(cache_system=True, output_schema=None)
+    await GatewayVendor(
+        KEY, _http(lambda _: _anthropic_reply([{"type": "text", "text": "ok"}]), seen)
+    ).complete(SONNET, cached)
+    await GatewayVendor(KEY, _http(lambda _: _openai_reply({"content": "ok"}), seen)).complete(
+        GPT, cached
+    )
+    anthropic_body, openai_body = (json.loads(r.content) for r in seen)
+    assert anthropic_body["system"] == [
+        {"type": "text", "text": "Transcribe the page.", "cache_control": {"type": "ephemeral"}}
+    ]
+    assert openai_body["messages"][0] == {"role": "system", "content": "Transcribe the page."}
+
+
 async def test_tool_use_round_trip_on_both_protocols() -> None:
     tools = [
         ToolSpec(

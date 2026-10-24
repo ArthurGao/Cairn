@@ -1,6 +1,6 @@
 """API models; the OpenAPI source for the frontend's generated client."""
 
-from datetime import datetime
+from datetime import date, datetime
 from typing import Literal
 
 from pydantic import Field
@@ -12,8 +12,12 @@ from cairn.core.cases.models import (
     Manifest,
     ReviewAction,
 )
+from cairn.core.context import ContextBreakdown
 from cairn.core.model import Model
+from cairn.core.usage import UsageEntry
+from cairn.core.writer import ChangeEntry
 from cairn.workflows.case_models import CheckState, SpecItem
+from cairn.workflows.run_models import RunStatus
 
 
 class ErrorBody(Model):
@@ -122,3 +126,73 @@ class ReviewIn(Model):
 
 class SignOffIn(Model):
     adviser: str
+
+
+# --- agent runs, context, memory, skills (design §11) -----------------------------------------
+
+
+class StartRun(Model):
+    task: str = Field(min_length=1, max_length=20_000)
+    max_steps: int | None = Field(default=None, ge=1, le=20)
+
+
+class RunStarted(Model):
+    run_id: str
+
+
+class RunBrief(Model):
+    run_id: str
+    task: str
+    status: RunStatus
+    started: datetime | None
+
+
+class ContextPreview(Model):
+    prompt: str
+    breakdown: ContextBreakdown
+
+
+class MemoryEntry(Model):
+    slug: str
+    title: str
+    type: str
+    description: str
+    created: date | None
+    usage: UsageEntry
+
+
+class IndexBudget(Model):
+    tokens: int
+    budget: int
+    over: bool
+
+
+class MemoryList(Model):
+    entries: list[MemoryEntry]
+    budget: IndexBudget
+    broken: list[str]
+
+
+class MemoryDetail(Model):
+    slug: str
+    text: str
+    body: str
+    changelog: list[ChangeEntry]
+
+
+class SkillReference(Model):
+    path: str
+    chars: int
+
+
+class SkillEntry(Model):
+    name: str
+    description: str
+    source: str
+    read_only: bool
+    body_chars: int
+    references: list[SkillReference]
+
+
+class SkillDetail(SkillEntry):
+    body: str

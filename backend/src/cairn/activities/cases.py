@@ -5,19 +5,19 @@ Temporal together. Activities may run twice: ingest and result writing are idemp
 """
 
 import base64
-import functools
 import json
-from collections.abc import Awaitable, Callable, Sequence
+from collections.abc import Sequence
 from io import BytesIO
 from pathlib import Path
 from typing import Any
 
 import pypdfium2 as pdfium
 from PIL import Image
-from pydantic import BaseModel, Field, ValidationError
+from pydantic import BaseModel, Field
 from temporalio import activity
 from temporalio.exceptions import ApplicationError
 
+from cairn.activities.common import call_llm, fatal, parse_reply, permanent
 from cairn.core.cases import store
 from cairn.core.cases.coverage import build_coverage, build_gaps, is_clean
 from cairn.core.cases.facts import (
@@ -55,7 +55,7 @@ from cairn.errors import CairnError
 from cairn.llm.client import LlmClient
 from cairn.llm.prompts import load_prompt
 from cairn.llm.roles import CHECK_ROLES, Role, data_class_problem
-from cairn.llm.types import ImagePart, LlmError, LlmRequest, LlmResult, Message, TextPart
+from cairn.llm.types import ImagePart, LlmRequest, LlmResult, Message, TextPart
 from cairn.settings import Settings
 from cairn.workflows.case_models import (
     CheckInput,
@@ -100,25 +100,6 @@ class _Items(BaseModel):
 MAX_TOKENS = "max_tokens"  # ApplicationError type for a reply cut off at max_tokens
 
 
-def _fatal(message: str, code: str) -> ApplicationError:
-    return ApplicationError(message, type=code, non_retryable=True)
-
-
-def _permanent[**P, R](fn: Callable[P, Awaitable[R]]) -> Callable[P, Awaitable[R]]:
-    """Domain errors (missing case, page, spec...) do not heal on retry: fail at once."""
-
-    @functools.wraps(fn)
-    async def wrapper(*args: P.args, **kwargs: P.kwargs) -> R:
-        try:
-            return await fn(*args, **kwargs)
-        except LlmError:
-            raise
-        except CairnError as exc:
-            raise _fatal(exc.message, exc.code) from exc
-
-    return wrapper
-
-
 def _heartbeat() -> None:
     if activity.in_activity():
         activity.heartbeat()
@@ -144,12 +125,7 @@ class CaseActivities:
     # --- model calls ------------------------------------------------------------------------
 
     async def _call(self, request: LlmRequest, calls: list[CallRecord]) -> LlmResult:
-        try:
-            result = await self.client.call(request)
-        except LlmError as exc:
-            if exc.retryable:
-                raise
-            raise _fatal(exc.message, exc.code) from exc
+        result = await call_llm(self.client, request)
         calls.append(
             CallRecord(
                 role=result.role,
@@ -161,15 +137,6 @@ class CaseActivities:
             )
         )
         return result
-
-    @staticmethod
-    def _parse[T: BaseModel](model: type[T], result: LlmResult) -> T:
-        try:
-            return model.model_validate(result.data or {})
-        except ValidationError as exc:
-            raise _fatal(
-                f"{result.role}: reply does not match its schema: {exc}", "schema"
-            ) from exc
 
     # --- spec and gate ----------------------------------------------------------------------
 
@@ -183,7 +150,7 @@ class CaseActivities:
         return load_checklist(self.skills / skill)
 
     @activity.defn
-    @_permanent
+    @permanent
     async def load_check_spec(self, check: CheckInput) -> CheckSpec:
         manifest = store.load_manifest(self.cases, check.case_id)
         if problem := data_class_problem(
@@ -192,7 +159,7 @@ class CaseActivities:
             self.settings.client_data_vendors,
             CHECK_ROLES[check.kind],
         ):
-            raise _fatal(problem, "data_class_blocked")
+            raise fatal(problem, "data_class_blocked")
         spec = CheckSpec(
             doc_ids=[d.doc_id for d in manifest.documents],
             pending_doc_ids=[d.doc_id for d in manifest.documents if d.status == "pending"],
@@ -208,9 +175,9 @@ class CaseActivities:
                     for i in checklist.items
                 ]
         except (SpecInvalid, OSError) as exc:
-            raise _fatal(str(exc), "spec_invalid") from exc
+            raise fatal(str(exc), "spec_invalid") from exc
         if not spec.doc_ids:
-            raise _fatal("the case has no documents", "case_empty")
+            raise fatal("the case has no documents", "case_empty")
         return spec
 
     # --- ingest (§8.2) ----------------------------------------------------------------------
@@ -232,7 +199,7 @@ class CaseActivities:
             prompt_version=version,
         )
         result = await self._call(request, calls)
-        out = self._parse(_Transcription, result)
+        out = parse_reply(_Transcription, result)
         if not out.readable:
             return Page(
                 doc_id=doc_id,
@@ -252,12 +219,12 @@ class CaseActivities:
         )
 
     @activity.defn
-    @_permanent
+    @permanent
     async def ingest_document(self, job: IngestInput) -> IngestOutcome:
         manifest = store.load_manifest(self.cases, job.case_id)
         doc = manifest.document(job.doc_id)
         if doc is None:
-            raise _fatal(f"no document {job.doc_id}", "document_not_found")
+            raise fatal(f"no document {job.doc_id}", "document_not_found")
         if doc.status == "ingested":  # a retried activity, or ingested by an earlier check
             return IngestOutcome(doc_id=doc.doc_id, status="ingested", pages=len(doc.pages))
         data = store.original_path(self.cases, job.case_id, doc.doc_id).read_bytes()
@@ -359,7 +326,7 @@ class CaseActivities:
         return IngestOutcome(doc_id=doc.doc_id, status="ingested", pages=len(pages), calls=calls)
 
     @activity.defn
-    @_permanent
+    @permanent
     async def mark_document_failed(self, job: MarkFailedInput) -> None:
         store.set_document_ingest(self.cases, job.case_id, job.doc_id, "failed", [], job.error)
 
@@ -417,14 +384,14 @@ class CaseActivities:
                     ),
                 ]
             raise
-        return self._parse(_Facts, result).facts
+        return parse_reply(_Facts, result).facts
 
     @activity.defn
-    @_permanent
+    @permanent
     async def extract_facts(self, job: ExtractInput) -> ExtractOutcome:
         doc = store.load_manifest(self.cases, job.case_id).document(job.doc_id)
         if doc is None:
-            raise _fatal(f"no document {job.doc_id}", "document_not_found")
+            raise fatal(f"no document {job.doc_id}", "document_not_found")
         pages = self._readable_pages(job.case_id, doc)
         categories = self._categories()
         version, template = load_prompt("case_extract_facts")
@@ -454,7 +421,7 @@ class CaseActivities:
         return ExtractOutcome(doc_id=doc.doc_id, facts=facts, dropped=dropped, calls=calls)
 
     @activity.defn
-    @_permanent
+    @permanent
     async def propose_conflicts(self, job: ProposeInput) -> ProposeOutcome:
         manifest = store.load_manifest(self.cases, job.case_id)
         names = {d.doc_id: d.filename for d in manifest.documents}
@@ -465,7 +432,7 @@ class CaseActivities:
         ]
         text = "Facts:\n" + "\n".join(lines)
         if (tokens := estimate_tokens(text)) > job.case_context_budget:
-            raise _fatal(
+            raise fatal(
                 f"the facts need {tokens} tokens; the case budget is {job.case_context_budget}",
                 "case_too_large_for_v1",
             )
@@ -479,7 +446,7 @@ class CaseActivities:
         )
         calls: list[CallRecord] = []
         result = await self._call(request, calls)
-        return ProposeOutcome(proposals=self._parse(_Conflicts, result).conflicts, calls=calls)
+        return ProposeOutcome(proposals=parse_reply(_Conflicts, result).conflicts, calls=calls)
 
     # --- pre-submission (§8.5) --------------------------------------------------------------
 
@@ -497,19 +464,19 @@ class CaseActivities:
         return "".join(blocks), texts
 
     @activity.defn
-    @_permanent
+    @permanent
     async def measure_case(self, job: MeasureInput) -> int:
         context, _ = self._case_pages(job.case_id)
         tokens = estimate_tokens(context)
         if tokens > job.budget:
-            raise _fatal(
+            raise fatal(
                 f"the case's pages need {tokens} tokens; v1 reads at most {job.budget} per check",
                 "case_too_large_for_v1",
             )
         return tokens
 
     @activity.defn
-    @_permanent
+    @permanent
     async def check_items(self, job: ItemsInput) -> ItemsOutcome:
         checklist = self._checklist(job.checklist_skill)
         items = [i for i in checklist.items if i.id in job.item_ids]
@@ -531,12 +498,12 @@ class CaseActivities:
         )
         calls: list[CallRecord] = []
         result = await self._call(request, calls)
-        return ItemsOutcome(replies=self._parse(_Items, result).results, calls=calls)
+        return ItemsOutcome(replies=parse_reply(_Items, result).results, calls=calls)
 
     # --- result (§4.9) ----------------------------------------------------------------------
 
     @activity.defn
-    @_permanent
+    @permanent
     async def write_result(self, job: FinishInput) -> CheckSummary:
         check = job.check
         manifest = store.load_manifest(self.cases, check.case_id)

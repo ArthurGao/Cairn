@@ -1,0 +1,29 @@
+[
+  {"role": "agent.main", "match": "Draft a short cover note",
+   "reply": {"tool_calls": [{"id": "t1", "name": "read_memory", "args": {"slug": "pilot-scope"}}], "stop_reason": "tool_use", "tokens_in": 900, "tokens_out": 40}},
+  {"role": "agent.main", "match": "Draft a short cover note",
+   "reply": {"text": "Draft cover note (AEWV, synthetic case): documents enclosed as listed, dated 24 October 2026.", "tokens_in": 1100, "tokens_out": 120}},
+  {"role": "memory.extract", "match": "Draft a short cover note",
+   "reply": {"tokens_in": 1500, "tokens_out": 300, "data": {
+     "ops": [
+       {"op": "create", "slug": "cover-note-dates", "type": "feedback",
+        "description": "Cover notes write dates as day month year",
+        "body": "Write dates in cover notes as 24 October 2026.\n\n**Why:** the adviser asked for it.\n**How to apply:** every cover note.",
+        "evidence": ["always write dates as 24 October 2026"], "reason": "adviser preference"},
+       {"op": "create", "slug": "questions-not-accusations", "type": "feedback",
+        "description": "Phrase each conflict as a question to confirm, never an accusation",
+        "body": "Ask, never accuse.\n\n**Why:** clients get these.\n**How to apply:** always.",
+        "evidence": ["Draft a short cover note"], "reason": "duplicate on purpose"},
+       {"op": "create", "slug": "client-contact", "type": "reference",
+        "description": "Where the client can be reached",
+        "body": "Email the client at alex@example.test.",
+        "evidence": ["Draft a short cover note"], "reason": "contact"},
+       {"op": "update", "slug": "pilot-scope", "type": "project",
+        "description": "Pilot covers AEWV cases only, on synthetic documents until Azure AU is verified",
+        "body": "The pilot runs on AEWV cases only, with synthetic documents.\n\n**Why:** consent and residency.\n**How to apply:** cover notes say the case is synthetic.",
+        "evidence": ["synthetic case"], "reason": "cover notes mention it"}
+     ],
+     "run_summary": "Drafted a cover note for the synthetic AEWV case.",
+     "open_items": ["Confirm the employer's address"]
+   }}}
+]

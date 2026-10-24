@@ -1,8 +1,8 @@
 """Scripted replies for tests and the full e2e stack; no network (design §10.1, §14).
 
-A scenario is a JSON list of `{role, match?, reply, repeat?}`. A call takes the first unused
-entry for its role whose `match` occurs in the request text; `repeat: true` entries are never
-used up. A call no entry expects fails loudly — the fake is never lenient.
+A scenario is a JSON list of `{role, match?, reply, repeat?}`, from one file or several. A call
+takes the first unused entry for its role whose `match` occurs in the request text; `repeat:
+true` entries are never used up. A call no entry expects fails loudly — the fake is never lenient.
 """
 
 import json
@@ -53,9 +53,12 @@ def _resolve(value: Any, doc_ids: dict[str, str]) -> Any:
 class FakeVendor:
     name = "fake"
 
-    def __init__(self, scenario: Path):
+    def __init__(self, *scenarios: Path):
+        """Several files are one scenario, in the order given (e.g. case checks + agent run)."""
         self.entries = [
-            FakeEntry.model_validate(e) for e in json.loads(scenario.read_text(encoding="utf-8"))
+            FakeEntry.model_validate(e)
+            for scenario in scenarios
+            for e in json.loads(scenario.read_text(encoding="utf-8"))
         ]
         self.used: set[int] = set()
         self.calls: list[LlmRequest] = []

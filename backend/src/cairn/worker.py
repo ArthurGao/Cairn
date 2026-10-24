@@ -12,16 +12,18 @@ from temporalio.client import Client
 from temporalio.worker import Worker
 
 from cairn import temporal
+from cairn.activities.agent import AgentActivities
 from cairn.activities.cases import CaseActivities
 from cairn.llm.client import LlmClient, build_client
 from cairn.llm.roles import ConfigError, data_class_problem
 from cairn.llm.validate import validate_models
 from cairn.settings import Settings
+from cairn.workflows.agent_run import AgentRunWorkflow
 from cairn.workflows.case_check import CaseCheckWorkflow
 
 log = logging.getLogger("cairn.worker")
 
-WORKFLOWS = [CaseCheckWorkflow]
+WORKFLOWS = [CaseCheckWorkflow, AgentRunWorkflow]
 
 
 def validate_startup(settings: Settings, client: LlmClient) -> None:
@@ -32,12 +34,14 @@ def validate_startup(settings: Settings, client: LlmClient) -> None:
 
 
 def build_worker(settings: Settings, temporal_client: Client, llm: LlmClient) -> Worker:
-    activities = CaseActivities(settings, llm)
     return Worker(
         temporal_client,
         task_queue=settings.task_queue,
         workflows=WORKFLOWS,
-        activities=list(activities.all()),
+        activities=[
+            *CaseActivities(settings, llm).all(),
+            *AgentActivities(settings, llm).all(),
+        ],
     )
 
 

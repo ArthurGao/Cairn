@@ -59,7 +59,11 @@ def build_params(config: RoleConfig, request: LlmRequest, model: str) -> dict[st
         ],
     }
     if request.system:  # never sent empty
-        params["system"] = request.system
+        params["system"] = (
+            [{"type": "text", "text": request.system, "cache_control": {"type": "ephemeral"}}]
+            if request.cache_system
+            else request.system
+        )
     output: dict[str, Any] = {}
     if config.effort:
         output["effort"] = config.effort

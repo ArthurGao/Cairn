@@ -62,6 +62,8 @@ class ToolSpec(BaseModel):
 class LlmRequest(BaseModel):
     role: Role
     system: str = ""
+    # Cache the tools + system prefix (sent unchanged on every step of an agent run).
+    cache_system: bool = False
     messages: list[Message]
     tools: list[ToolSpec] = Field(default_factory=list[ToolSpec])
     output_schema: dict[str, Any] | None = None

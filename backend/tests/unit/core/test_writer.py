@@ -11,7 +11,16 @@ from filelock import FileLock
 from cairn.core import writer
 from cairn.core.formats import parse_memory, serialise
 from cairn.core.index import archive_path, indexed_slugs, memory_path, read_index
-from cairn.core.writer import Op, OpGroup, apply, read_changelog, text_hash, undo
+from cairn.core.writer import (
+    Op,
+    OpGroup,
+    apply,
+    changelog,
+    read_changelog,
+    text_hash,
+    undo,
+    undone_ids,
+)
 from cairn.errors import CairnError
 
 NOW = datetime(2026, 10, 24, 3, 12, 9, tzinfo=UTC)
@@ -292,3 +301,28 @@ def test_slugs_that_could_escape_memory_are_rejected(
     assert (info.value.code, info.value.status) == ("invalid_slug", 422)
     assert not (home / "escape.md").exists()
     assert read_changelog(home) == []
+
+
+def test_changelog_queries_newest_first_and_undone_ids(home: Path, ids: Callable[[], str]) -> None:
+    for n, slug in enumerate(["n1", "n2", "n1"]):
+        op = "create" if n < 2 else "update"
+        base = None if op == "create" else text_hash(memory_path(home, slug).read_text())
+        after = _new_memory(slug, f"Version {n}")
+        apply(
+            home,
+            [_group(f"g{n}", Op(op_id=f"r:{n}", op=op, slug=slug, after=after, base_hash=base))],
+            "run",
+            NOW,
+            ids,
+        )
+    assert [(e.id, e.slug) for e in changelog(home)] == [
+        ("chg_3", "n1"),
+        ("chg_2", "n2"),
+        ("chg_1", "n1"),
+    ]
+    assert [e.id for e in changelog(home, slug="n1")] == ["chg_3", "chg_1"]
+    assert [e.id for e in changelog(home, slug="n1", limit=1)] == ["chg_3"]
+    assert [e.id for e in changelog(home, limit=2)] == ["chg_3", "chg_2"]
+    assert undone_ids(home) == set()
+    undo(home, "chg_2", "user", NOW, ids)
+    assert undone_ids(home) == {"chg_2"}

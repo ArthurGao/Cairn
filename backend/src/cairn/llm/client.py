@@ -2,7 +2,6 @@
 
 import os
 from collections.abc import Mapping
-from pathlib import Path
 from typing import Protocol
 
 import httpx2
@@ -64,8 +63,10 @@ def build_client(
     vendors: dict[str, Vendor] = {}
     if "fake" in used:
         if settings.fake_scenario is None:
-            raise ConfigError("the fake vendor needs CAIRN_FAKE_SCENARIO (a scenario JSON file)")
-        vendors["fake"] = FakeVendor(Path(settings.fake_scenario))
+            raise ConfigError(
+                "the fake vendor needs CAIRN_FAKE_SCENARIO (scenario JSON files, colon-separated)"
+            )
+        vendors["fake"] = FakeVendor(*settings.fake_scenarios)
     if "gateway" in used:
         key = settings.ai_gateway_api_key.get_secret_value()
         if not key:

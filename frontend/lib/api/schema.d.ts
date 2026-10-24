@@ -190,6 +190,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/context/preview": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Preview Context */
+        get: operations["previewContext"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/health": {
         parameters: {
             query?: never;
@@ -207,10 +224,165 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/memory": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Memory */
+        get: operations["listMemory"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/memory/changelog": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Changelog */
+        get: operations["listChangelog"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/memory/changelog/{change_id}/undo": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Undo Change */
+        post: operations["undoChange"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/memory/{slug}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Memory */
+        get: operations["getMemory"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/runs": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Runs */
+        get: operations["listRuns"];
+        put?: never;
+        /** Start Run */
+        post: operations["startRun"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/runs/{run_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Run */
+        get: operations["getRun"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/skills": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Skills */
+        get: operations["listSkills"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/skills/{name}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Skill */
+        get: operations["getSkill"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
+        /** AppliedOp */
+        AppliedOp: {
+            /** After */
+            after: string | null;
+            /** Before */
+            before: string | null;
+            /** Change Id */
+            change_id: string;
+            /** Op */
+            op: string;
+            /** Slug */
+            slug: string;
+            /**
+             * Undone
+             * @default false
+             */
+            undone: boolean;
+        };
         /** AuditEntry */
         AuditEntry: {
             /** Action */
@@ -288,6 +460,36 @@ export interface components {
             documents: number;
             /** Label */
             label: string;
+        };
+        /** ChangeEntry */
+        ChangeEntry: {
+            /** Actor */
+            actor: string;
+            /** After */
+            after: string | null;
+            /**
+             * At
+             * Format: date-time
+             */
+            at: string;
+            /** Base Hash */
+            base_hash: string | null;
+            /** Before */
+            before: string | null;
+            /** Group Id */
+            group_id: string;
+            /** Id */
+            id: string;
+            /** Op */
+            op: ("create" | "update" | "archive" | "restore") | "index_sync";
+            /** Op Id */
+            op_id: string;
+            /** Reason */
+            reason: string;
+            /** Slug */
+            slug: string;
+            /** Undo Of */
+            undo_of?: string | null;
         };
         /** CheckBrief */
         CheckBrief: {
@@ -523,6 +725,27 @@ export interface components {
             /** Summary */
             summary: string;
         };
+        /** ContextBreakdown */
+        ContextBreakdown: {
+            /** Agents Md */
+            agents_md: number;
+            /** Baseline All */
+            baseline_all: number;
+            /** L0 Total */
+            l0_total: number;
+            /** Memory Index */
+            memory_index: number;
+            /** Omitted Index Lines */
+            omitted_index_lines: number;
+            /** Skill Index */
+            skill_index: number;
+        };
+        /** ContextPreview */
+        ContextPreview: {
+            breakdown: components["schemas"]["ContextBreakdown"];
+            /** Prompt */
+            prompt: string;
+        };
         /** Coverage */
         Coverage: {
             /** Documents */
@@ -637,6 +860,11 @@ export interface components {
             /** Reason */
             reason: string;
         };
+        /** HTTPValidationError */
+        HTTPValidationError: {
+            /** Detail */
+            detail?: components["schemas"]["ValidationError"][];
+        };
         /** HealthOk */
         HealthOk: {
             /** Cases */
@@ -658,6 +886,15 @@ export interface components {
              * @constant
              */
             temporal: "ok";
+        };
+        /** IndexBudget */
+        IndexBudget: {
+            /** Budget */
+            budget: number;
+            /** Over */
+            over: boolean;
+            /** Tokens */
+            tokens: number;
         };
         /** ItemResult */
         ItemResult: {
@@ -696,6 +933,39 @@ export interface components {
             /** Label */
             label: string;
         };
+        /** MemoryDetail */
+        MemoryDetail: {
+            /** Body */
+            body: string;
+            /** Changelog */
+            changelog: components["schemas"]["ChangeEntry"][];
+            /** Slug */
+            slug: string;
+            /** Text */
+            text: string;
+        };
+        /** MemoryEntry */
+        MemoryEntry: {
+            /** Created */
+            created: string | null;
+            /** Description */
+            description: string;
+            /** Slug */
+            slug: string;
+            /** Title */
+            title: string;
+            /** Type */
+            type: string;
+            usage: components["schemas"]["UsageEntry"];
+        };
+        /** MemoryList */
+        MemoryList: {
+            /** Broken */
+            broken: string[];
+            budget: components["schemas"]["IndexBudget"];
+            /** Entries */
+            entries: components["schemas"]["MemoryEntry"][];
+        };
         /** Page */
         Page: {
             /** Doc Id */
@@ -729,6 +999,20 @@ export interface components {
             /** N */
             n: number;
         };
+        /** RejectedOp */
+        RejectedOp: {
+            /**
+             * Code
+             * @enum {string}
+             */
+            code: "run_limit" | "schema" | "evidence_missing" | "secret" | "personal_data" | "duplicate" | "not_found" | "conflict";
+            /** Index */
+            index: number;
+            /** Reason */
+            reason: string;
+            /** Slug */
+            slug: string;
+        };
         /** ReviewIn */
         ReviewIn: {
             /**
@@ -740,6 +1024,58 @@ export interface components {
             adviser: string;
             /** Note */
             note?: string | null;
+        };
+        /** RunBrief */
+        RunBrief: {
+            /** Run Id */
+            run_id: string;
+            /** Started */
+            started: string | null;
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "running" | "extracting" | "writing" | "completed" | "failed";
+            /** Task */
+            task: string;
+        };
+        /** RunStarted */
+        RunStarted: {
+            /** Run Id */
+            run_id: string;
+        };
+        /**
+         * RunState
+         * @description The `get_state` query result and the API's run view (design §6.2).
+         */
+        RunState: {
+            /** Answer */
+            answer: string | null;
+            context: components["schemas"]["ContextBreakdown"] | null;
+            /** Error */
+            error: string | null;
+            /** Loaded */
+            loaded: string[];
+            /**
+             * Loaded Tokens
+             * @default 0
+             */
+            loaded_tokens: number;
+            /** Run Id */
+            run_id: string;
+            /** Started */
+            started: string | null;
+            /**
+             * Status
+             * @default running
+             * @enum {string}
+             */
+            status: "running" | "extracting" | "writing" | "completed" | "failed";
+            /** Steps */
+            steps: components["schemas"]["Step"][];
+            /** Task */
+            task: string;
+            writeback: components["schemas"]["WritebackResult"] | null;
         };
         /** SignOff */
         SignOff: {
@@ -755,6 +1091,45 @@ export interface components {
         SignOffIn: {
             /** Adviser */
             adviser: string;
+        };
+        /** SkillDetail */
+        SkillDetail: {
+            /** Body */
+            body: string;
+            /** Body Chars */
+            body_chars: number;
+            /** Description */
+            description: string;
+            /** Name */
+            name: string;
+            /** Read Only */
+            read_only: boolean;
+            /** References */
+            references: components["schemas"]["SkillReference"][];
+            /** Source */
+            source: string;
+        };
+        /** SkillEntry */
+        SkillEntry: {
+            /** Body Chars */
+            body_chars: number;
+            /** Description */
+            description: string;
+            /** Name */
+            name: string;
+            /** Read Only */
+            read_only: boolean;
+            /** References */
+            references: components["schemas"]["SkillReference"][];
+            /** Source */
+            source: string;
+        };
+        /** SkillReference */
+        SkillReference: {
+            /** Chars */
+            chars: number;
+            /** Path */
+            path: string;
         };
         /** SpecItem */
         SpecItem: {
@@ -774,6 +1149,83 @@ export interface components {
              * @enum {string}
              */
             kind: "consistency" | "presubmission";
+        };
+        /** StartRun */
+        StartRun: {
+            /** Max Steps */
+            max_steps?: number | null;
+            /** Task */
+            task: string;
+        };
+        /** Step */
+        Step: {
+            /** Arg */
+            arg: string | null;
+            /**
+             * At
+             * Format: date-time
+             */
+            at: string;
+            /**
+             * Kind
+             * @enum {string}
+             */
+            kind: "llm" | "tool";
+            /** Model */
+            model: string | null;
+            /** N */
+            n: number;
+            /** Result Chars */
+            result_chars: number | null;
+            /** Role */
+            role: string | null;
+            /** Tokens */
+            tokens: number | null;
+            /** Tokens In */
+            tokens_in: number | null;
+            /** Tokens Out */
+            tokens_out: number | null;
+            /** Tool */
+            tool: string | null;
+            /** Truncated */
+            truncated: boolean | null;
+        };
+        /** UsageEntry */
+        UsageEntry: {
+            /** Last Read */
+            last_read: string | null;
+            /**
+             * Reads
+             * @default 0
+             */
+            reads: number;
+            /**
+             * Written By Runs
+             * @default 0
+             */
+            written_by_runs: number;
+        };
+        /** ValidationError */
+        ValidationError: {
+            /** Context */
+            ctx?: Record<string, never>;
+            /** Input */
+            input?: unknown;
+            /** Location */
+            loc: (string | number)[];
+            /** Message */
+            msg: string;
+            /** Error Type */
+            type: string;
+        };
+        /** WritebackResult */
+        WritebackResult: {
+            /** Applied */
+            applied: components["schemas"]["AppliedOp"][];
+            /** Error */
+            error: string | null;
+            /** Rejected */
+            rejected: components["schemas"]["RejectedOp"][];
         };
     };
     responses: never;
@@ -1609,6 +2061,62 @@ export interface operations {
             };
         };
     };
+    previewContext: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ContextPreview"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Service Unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
     getHealth: {
         parameters: {
             query?: never;
@@ -1625,6 +2133,427 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["HealthOk"];
+                };
+            };
+            /** @description Service Unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    listMemory: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MemoryList"];
+                };
+            };
+        };
+    };
+    listChangelog: {
+        parameters: {
+            query?: {
+                limit?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ChangeEntry"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    undoChange: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                change_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ChangeEntry"][];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Service Unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    getMemory: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                slug: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MemoryDetail"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Service Unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    listRuns: {
+        parameters: {
+            query?: {
+                limit?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RunBrief"][];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Service Unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    startRun: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["StartRun"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RunStarted"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Service Unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    getRun: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                run_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RunState"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Service Unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    listSkills: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SkillEntry"][];
+                };
+            };
+        };
+    };
+    getSkill: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                name: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SkillDetail"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
             /** @description Service Unavailable */

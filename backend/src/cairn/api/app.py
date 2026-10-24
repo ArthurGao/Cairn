@@ -17,7 +17,7 @@ from temporalio.client import Client
 
 from cairn import temporal
 from cairn.api.limits import UploadLimit
-from cairn.api.routes import cases
+from cairn.api.routes import cases, manage
 from cairn.api.schemas import ErrorBody, ErrorResponse, HealthOk
 from cairn.api.services import Services
 from cairn.core.home import case_store_problem, home_problem
@@ -76,6 +76,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app = FastAPI(title="Cairn API", version="0.1.0", lifespan=lifespan)
     app.state.services = Services(settings=settings, temporal=state)
     app.include_router(cases.router)
+    app.include_router(manage.router)
     app.add_middleware(
         UploadLimit,
         limit=settings.max_documents_per_case * settings.max_upload_mb * 1024 * 1024,

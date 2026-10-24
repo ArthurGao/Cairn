@@ -5,14 +5,15 @@ from collections.abc import Iterable
 from datetime import date
 from pathlib import Path
 
-from pydantic import BaseModel, TypeAdapter
+from pydantic import TypeAdapter
 
 from cairn.core.atomic import write_text_atomic
+from cairn.core.model import Model
 
 USAGE_FILE = Path("state/usage.json")
 
 
-class UsageEntry(BaseModel):
+class UsageEntry(Model):
     reads: int = 0
     last_read: date | None = None
     written_by_runs: int = 0

@@ -119,6 +119,22 @@ def read_changelog(home: Path) -> list[ChangeEntry]:
     return [ChangeEntry.model_validate_json(line) for line in _changelog_lines(home)]
 
 
+def changelog(home: Path, slug: str | None = None, limit: int | None = None) -> list[ChangeEntry]:
+    """Newest first. Lines are filtered as raw JSON so only the kept ones are validated."""
+    entries: list[ChangeEntry] = []
+    for line in reversed(_changelog_lines(home)):
+        if limit is not None and len(entries) >= limit:
+            break
+        if slug is None or json.loads(line)["slug"] == slug:
+            entries.append(ChangeEntry.model_validate_json(line))
+    return entries
+
+
+def undone_ids(home: Path) -> set[str]:
+    """Change ids an undo has reversed."""
+    return {u for line in _changelog_lines(home) if (u := json.loads(line).get("undo_of"))}
+
+
 def _logged_op_ids(home: Path) -> set[str]:
     """Op ids only: no need to validate every before/after text on each write."""
     return {json.loads(line)["op_id"] for line in _changelog_lines(home)}

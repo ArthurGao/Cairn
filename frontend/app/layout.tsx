@@ -31,6 +31,19 @@ export default function RootLayout({ children }: { children: ReactNode }) {
                   <Link href="/cases" className="hover:underline">
                     Cases
                   </Link>
+                  <span className="text-muted" aria-hidden>
+                    |
+                  </span>
+                  <span className="sr-only">Manage:</span>
+                  {[
+                    ["/manage/runs", "Runs"],
+                    ["/manage/context", "Context"],
+                    ["/manage/memory", "Memory"],
+                  ].map(([href, label]) => (
+                    <Link key={href} href={href} className="text-muted hover:text-ink hover:underline">
+                      {label}
+                    </Link>
+                  ))}
                 </nav>
               </div>
               <div className="col-span-6 flex justify-end">
