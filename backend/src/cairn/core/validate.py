@@ -108,7 +108,8 @@ def _check(
         raise _Reject("evidence_missing", "no evidence given")
     if missing := [e for e in evidence if e not in sources]:
         raise _Reject("evidence_missing", f"not found in the run: {missing[0]!r}")
-    text = proposal.description + "\n" + proposal.body
+    # Everything that will be persisted (file or change log) is scanned.
+    text = "\n".join((proposal.description, proposal.body, proposal.reason))
     if name := find_secret(text):
         raise _Reject("secret", f"matches the {name} pattern")
     if name := find_personal_data(text):

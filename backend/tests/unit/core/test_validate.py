@@ -151,3 +151,15 @@ def test_writer_conflicts_map_to_the_conflict_code(home: Path) -> None:
     assert [(r.index, r.slug, r.code) for r in conflict_rejections(plan, result)] == [
         (0, "pilot-scope", "conflict")
     ]
+
+
+def test_reason_is_scanned_because_the_changelog_keeps_it(home: Path) -> None:
+    plan = _plan(
+        home,
+        _op(slug="leaky-reason", reason="user pasted sk-ant-api03-abcdefgh1234"),
+        _op(slug="personal-reason", reason="client alex@example.test asked"),
+    )
+    assert [(r.slug, r.code) for r in plan.rejected] == [
+        ("leaky-reason", "secret"),
+        ("personal-reason", "personal_data"),
+    ]
