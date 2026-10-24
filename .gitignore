@@ -1,0 +1,44 @@
+# Environment files hold keys: commit only the .example templates.
+.env
+.env.*
+!.env.example
+
+# Dev case store: client documents never go into git (design §3.2, D-14).
+.cases/
+
+# Runtime state written by the harness in local dev
+.cairn.lock
+.case.lock
+*.tmp-*
+workspace/state/runs/*
+!workspace/state/runs/.gitkeep
+.temporal/
+
+# Python
+.venv/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+
+# Node / Next.js
+node_modules/
+.next/
+out/
+next-env.d.ts
+*.tsbuildinfo
+coverage/
+test-results/
+playwright-report/
+blob-report/
+playwright/.cache/
+
+# Browser automation artefacts (Playwright MCP screenshots, console logs)
+.playwright-mcp/
+
+# OS / editors
+.DS_Store
+.idea/
+.vscode/

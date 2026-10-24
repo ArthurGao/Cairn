@@ -1,0 +1,55 @@
+[project]
+name = "cairn"
+version = "0.1.0"
+description = "File-driven agent harness for immigration advisers' case checks"
+requires-python = ">=3.12,<3.13"
+dependencies = [
+    "fastapi>=0.162",
+    "uvicorn[standard]>=0.54",
+    "pydantic>=2.14",
+    "pydantic-settings>=2.16",
+    "temporalio>=1.34",
+]
+
+[dependency-groups]
+dev = [
+    "httpx>=0.28",
+    "pyright>=1.1.414",
+    "pytest>=9.1",
+    "pytest-asyncio>=1.4",
+    "ruff>=0.17",
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/cairn"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+src = ["src", "tests"]
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "B", "UP", "SIM", "RUF", "ASYNC", "PT"]
+
+[tool.ruff.lint.isort]
+known-first-party = ["cairn", "tests"]
+
+[tool.pyright]
+include = ["src", "tests"]
+pythonVersion = "3.12"
+typeCheckingMode = "standard"
+strict = ["src/cairn/core"]
+venvPath = "."
+venv = ".venv"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+asyncio_mode = "auto"
+asyncio_default_fixture_loop_scope = "session"
+asyncio_default_test_loop_scope = "session"
+addopts = "-m 'not live' -ra"
+markers = ["live: calls a real LLM vendor; skips visibly without its key"]

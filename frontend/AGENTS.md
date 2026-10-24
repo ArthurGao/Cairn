@@ -35,7 +35,7 @@ npm run lint           # eslint . (flat config; not `next lint`, deprecated sinc
 npm run typecheck      # tsc --noEmit
 npm run test           # vitest + playwright (mocked API)
 npm run e2e:full       # playwright against the real stack (make dev, fake vendor)
-npm run api:gen        # fetch http://localhost:4700/openapi.json -> lib/api/schema.d.ts
+npm run api:gen        # regenerate lib/api/schema.d.ts from the backend's OpenAPI export (no server)
 npm run api:check      # regenerate from backend (python export, no server) and fail on diff
 ```
 

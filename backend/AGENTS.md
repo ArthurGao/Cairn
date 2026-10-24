@@ -67,7 +67,7 @@ uv run pytest                             # excludes -m live
 uv run pytest -m live                     # real vendors; each path skips visibly without its key
                                           # (AI_GATEWAY_API_KEY, ANTHROPIC_API_KEY)
 uv run python -m cairn.worker             # worker (needs temporal dev server)
-uv run uvicorn cairn.api.app:app --port 4700 --reload
+uv run uvicorn cairn.api.app:create_app --factory --port 4700 --reload
 uv run cairn lint --home ../workspace
 ```
 

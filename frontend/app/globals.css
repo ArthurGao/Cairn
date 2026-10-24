@@ -1,0 +1,8 @@
+@import "tailwindcss";
+
+/* Plain scaffold styling. The swiss-grid direction (design §12.3) replaces this in M4. */
+body {
+  background: #ffffff;
+  color: #171717;
+  font-family: ui-sans-serif, system-ui, sans-serif;
+}
