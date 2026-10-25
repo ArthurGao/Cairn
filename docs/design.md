@@ -785,6 +785,7 @@ Follows the role-layer rule: call sites name a role; config maps role → vendor
 | --- | --- | --- | --- |
 | `gateway` | Vercel AI Gateway: Claude (`anthropic/*`) and GPT (`openai/*`) models | `AI_GATEWAY_API_KEY` | the gateway's `provider/model` id, exactly as `GET https://ai-gateway.vercel.sh/v1/models` lists it (`anthropic/claude-sonnet-5.5` — a dot, not `claude-sonnet-5-5`) |
 | `anthropic` | Anthropic API directly | `ANTHROPIC_API_KEY` | Anthropic's id (`claude-sonnet-5-5`) |
+| `llmgw` | the local LLM gateway (`~/Code/AI/llm-gateway`) on the developer's own ChatGPT/Claude subscription — **local dev and demos only** (D-19) | none (`CAIRN_LLMGW_BASE_URL`, loopback only) | a gateway profile name (`claude-sub`, `gpt-sub`), from `GET <url>/models` |
 | `fake` | nothing: replays `tests/fixtures/llm/<scenario>.json` (`CAIRN_FAKE_SCENARIO`; several files colon-separated, read in order) | — | any |
 | `azure` | **reserved, not built in v1**: the path for client data once Azure Australia processing is verified (§10.4) | — | — |
 
@@ -801,6 +802,11 @@ So the gateway and the direct `anthropic` vendor share one Anthropic adapter (on
 and key differ — the Anthropic SDK 2.x sends the key as a bearer token on both), and GPT models are
 reachable only through the gateway in v1. SDK retries are off in both adapters: Temporal retries
 the activity, guided by the error class (§10.3).
+
+`llmgw` reuses the OpenAI Chat Completions adapter with the configured base URL and a placeholder
+key. Its v1 serves text and structured output only (no tools, no images), so only the five text
+roles can use it; `agent.main` and `document.transcribe` stay on `gateway`. It ignores `effort`.
+Subscription results can differ from the API: re-run on an API vendor before relying on a result.
 
 ### 10.2 Roles
 
@@ -866,7 +872,9 @@ the protocol. Messages may carry text and images (page renders for `document.tra
   `gateway` model id not in `GET https://ai-gateway.vercel.sh/v1/models` or with a prefix other
   than `anthropic/`/`openai/`; a model whose listed `tags` lack what the role needs (the "Needs"
   column: `tool-use`, `structured-output`, `vision`); an unknown id for the direct `anthropic`
-  vendor (its models endpoint); the data-class gate (§10.4).
+  vendor (its models endpoint); an `llmgw` role whose profile is not in `GET <url>/models` or
+  that needs `tool-use` or `vision`, or a non-loopback `CAIRN_LLMGW_BASE_URL`; the data-class gate
+  (§10.4).
 
 ### 10.4 Data-class gate
 
@@ -875,6 +883,7 @@ the protocol. Messages may carry text and images (page renders for `document.tra
 
 - **Startup.** With `client`, every role's vendor must be in `CAIRN_CLIENT_DATA_VENDORS`
   (comma-separated, default empty), and `gateway`/`anthropic` are refused in that list in v1 —
+  `llmgw` always (a personal subscription, D-19) —
   so a v1 deployment cannot process client data at all until the `azure` vendor exists and its
   Australian processing, logging, backup and abuse-monitoring locations are verified (D-15).
 - **Per check.** `load_check_spec` fails the check if the case's `data_class` is `client` and any

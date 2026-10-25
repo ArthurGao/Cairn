@@ -39,8 +39,9 @@ CHECK_ROLES: dict[str, tuple[Role, ...]] = {
     "presubmission": (Role.DOCUMENT_TRANSCRIBE, Role.CASE_CHECK_ITEM),
 }
 
-# Vendors that may never receive client data in v1, whatever the allow-list says (D-15).
-NEVER_CLIENT_DATA = frozenset({"gateway", "anthropic"})
+# Vendors that may never receive client data in v1, whatever the allow-list says (D-15);
+# `llmgw` never may: it answers on a personal subscription (D-19).
+NEVER_CLIENT_DATA = frozenset({"gateway", "anthropic", "llmgw"})
 
 
 class ConfigError(CairnError):

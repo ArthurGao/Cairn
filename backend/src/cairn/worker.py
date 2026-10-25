@@ -53,7 +53,7 @@ async def main() -> None:
     settings = Settings()
     llm = build_client(settings)
     validate_startup(settings, llm)
-    await validate_models(llm.roles)
+    await validate_models(llm)
     settings.cases_dir.mkdir(parents=True, exist_ok=True)
     client = await temporal.connect(settings)
     log.info("cleanup schedule %s", await ensure_schedule(client, settings))

@@ -54,6 +54,7 @@ def build_client(
     from cairn.llm.vendors.anthropic import AnthropicAdapter
     from cairn.llm.vendors.fake import FakeVendor
     from cairn.llm.vendors.gateway import GatewayVendor
+    from cairn.llm.vendors.llmgw import LlmgwVendor
 
     roles = load_roles(
         settings.roles_file, env if env is not None else role_env(), settings.llm_vendor
@@ -76,4 +77,8 @@ def build_client(
         if not key:
             raise ConfigError("roles use the anthropic vendor but ANTHROPIC_API_KEY is not set")
         vendors["anthropic"] = AnthropicAdapter("anthropic", key, None, http_client)
+    if "llmgw" in used:
+        if not settings.llmgw_base_url:
+            raise ConfigError("roles use the llmgw vendor but CAIRN_LLMGW_BASE_URL is not set")
+        vendors["llmgw"] = LlmgwVendor(settings.llmgw_base_url, http_client)
     return LlmClient(roles, vendors)

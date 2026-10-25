@@ -75,6 +75,10 @@ def test_data_class_gate() -> None:
         "not allowed: case.check_item -> gateway"
     )
     assert data_class_problem(_roles("azure"), "client", "azure") is None
+    assert data_class_problem(_roles("llmgw"), "client", "llmgw,azure", (Role.AGENT_MAIN,)) == (
+        "client data may only go to allow-listed vendors (CAIRN_CLIENT_DATA_VENDORS); "
+        "not allowed: agent.main -> llmgw"
+    )
 
 
 def test_worker_refuses_to_start_with_client_data_on_the_gateway(tmp_path: Path) -> None:

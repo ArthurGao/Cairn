@@ -41,6 +41,7 @@ class Settings(BaseSettings):
     anthropic_api_key: SecretStr = Field(
         default=SecretStr(""), validation_alias="ANTHROPIC_API_KEY"
     )
+    llmgw_base_url: str = ""  # the local LLM gateway, local dev and demos only (D-19)
     llm_vendor: str = ""
     roles_file: Path = Path("config/roles.toml")
     fake_scenario: Path | None = None

@@ -200,3 +200,24 @@ and a host API could write the same file at once. Temporal shares nothing on dis
 **Revisit when** the worker and the API run in the same place (both in containers on one Linux
 host, or a deployment with its own storage), at which point all of them can be containerised.
 
+
+## D-19 — The local LLM gateway is a dev and demo vendor, never production
+
+**Decision.** A vendor `llmgw` sends roles to the developer's local LLM gateway
+(`~/Code/AI/llm-gateway`), which answers OpenAI Chat Completions on their own ChatGPT or Claude
+subscription. It is switched on by env only (`CAIRN_LLMGW_BASE_URL` plus per-role
+`…_VENDOR=llmgw` / `…_MODEL=<profile>`); `roles.toml` never names it. Code refuses a non-loopback
+URL and refuses `llmgw` with client data whatever `CAIRN_CLIENT_DATA_VENDORS` says. Startup
+validation refuses a role that needs tools or images (the gateway's v1 serves neither) and a
+profile the gateway does not list.
+
+**Why.** The Vercel free tier serves no Claude model, and paying per token for local testing and
+demos is avoidable when a subscription is already paid for. Subscription quota is personal: using
+it to serve other people, or to process a client's documents, is outside its terms and outside the
+data-class gate (§10.4), so those limits are enforced in code rather than left to config. The role
+layer means no call site changes.
+
+**Consequences.** Results on a subscription channel can differ from the API (the Claude channel
+adds its own system prompt and ignores sampling settings), so a result that matters is re-run on
+an API vendor. `agent.main` and `document.transcribe` stay on `gateway` until the local gateway
+supports tools and images.

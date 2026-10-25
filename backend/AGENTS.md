@@ -46,6 +46,7 @@ backend/
       vendors/anthropic.py          # Anthropic Messages adapter (direct API and gateway anthropic/*)
       vendors/openai.py             # OpenAI Chat Completions adapter (gateway openai/*)
       vendors/gateway.py            # picks the adapter by model prefix; gateway base URL + key
+      vendors/llmgw.py              # local LLM gateway (dev/demo only, loopback, D-19)
       vendors/fake.py
       prompts/agent_main.md  memory_extract.md  memory_consolidate.md
     workflows/case_check.py  workflows/agent_run.py  workflows/memory_cleanup.py  (+ *_models.py)

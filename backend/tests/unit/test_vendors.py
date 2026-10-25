@@ -10,7 +10,7 @@ import httpx2
 import pytest
 from pydantic import BaseModel, Field
 
-from cairn.llm.client import build_client
+from cairn.llm.client import LlmClient, build_client
 from cairn.llm.roles import ConfigError, Role, RoleConfig, load_roles
 from cairn.llm.schema import strict_schema
 from cairn.llm.types import (
@@ -23,9 +23,10 @@ from cairn.llm.types import (
     ToolSpec,
     ToolUsePart,
 )
-from cairn.llm.validate import model_problems, validate_models
+from cairn.llm.validate import llmgw_problems, model_problems, validate_models
 from cairn.llm.vendors.anthropic import AnthropicAdapter
 from cairn.llm.vendors.gateway import GatewayVendor
+from cairn.llm.vendors.llmgw import LlmgwVendor
 from tests.support import make_settings
 
 KEY = "test-key-not-real"
@@ -533,11 +534,12 @@ def test_model_problems_name_each_role() -> None:
 
 async def test_validate_models_reads_the_live_listing_shape() -> None:
     roles = load_roles(Path(__file__).parents[2] / "config/roles.toml", {})
+    llm = LlmClient(roles, {"gateway": GatewayVendor(KEY)})
     seen: Seen = []
-    await validate_models(roles, _http(lambda _: httpx2.Response(200, json=_listing()), seen))
+    await validate_models(llm, _http(lambda _: httpx2.Response(200, json=_listing()), seen))
     assert str(seen[0].url) == "https://ai-gateway.vercel.sh/v1/models"
     with pytest.raises(ConfigError, match="could not read the gateway model list"):
-        await validate_models(roles, _http(lambda _: httpx2.Response(503), []))
+        await validate_models(llm, _http(lambda _: httpx2.Response(503), []))
 
 
 def test_build_client_needs_the_key_of_every_used_vendor(tmp_path: Path) -> None:
@@ -552,3 +554,122 @@ def test_build_client_needs_the_key_of_every_used_vendor(tmp_path: Path) -> None
     }
     with pytest.raises(ConfigError, match="ANTHROPIC_API_KEY is not set"):
         build_client(keyed, env=direct)
+
+
+LLMGW = "http://127.0.0.1:8787/v1"
+CLAUDE_SUB = RoleConfig(vendor="llmgw", model="claude-sub", effort="low", max_tokens=600)
+
+
+async def test_llmgw_speaks_chat_completions_to_the_local_gateway() -> None:
+    seen: Seen = []
+    http = _http(lambda _: _openai_reply({"content": '{"readable": true, "text": "x"}'}), seen)
+    result = await LlmgwVendor(LLMGW + "/", http).complete(
+        CLAUDE_SUB, _request(role=Role.CASE_CHECK_ITEM, messages=[Message.user("Item: passport")])
+    )
+    [sent] = seen
+    assert str(sent.url) == "http://127.0.0.1:8787/v1/chat/completions"
+    assert sent.headers["authorization"] == "Bearer llmgw-local"
+    body = json.loads(sent.content)
+    assert (body["model"], body["max_completion_tokens"]) == ("claude-sub", 600)
+    assert body["messages"][1] == {
+        "role": "user",
+        "content": [{"type": "text", "text": "Item: passport"}],
+    }
+    assert (result.vendor, result.model, result.data) == (
+        "llmgw",
+        "claude-sub",
+        {"readable": True, "text": "x"},
+    )
+
+
+async def test_llmgw_rate_limits_keep_their_retry_delay() -> None:
+    reply = httpx2.Response(
+        429,
+        json={"error": {"message": "usage limit", "type": "rate_limit"}},
+        headers={"retry-after": "60"},
+    )
+    vendor = LlmgwVendor(LLMGW, _http(lambda _: reply, []))
+    with pytest.raises(LlmError) as info:
+        await vendor.complete(CLAUDE_SUB, _request(messages=[Message.user("hi")]))
+    assert (info.value.code, info.value.retryable, info.value.retry_after) == (
+        "rate_limited",
+        True,
+        60.0,
+    )
+
+
+@pytest.mark.parametrize(
+    "url",
+    ["http://10.0.0.5:8787/v1", "https://example.com/v1", "ftp://127.0.0.1/v1", "127.0.0.1:8787"],
+)
+def test_llmgw_refuses_a_non_loopback_url(url: str) -> None:
+    with pytest.raises(ConfigError, match="must be a loopback http"):
+        LlmgwVendor(url)
+
+
+@pytest.mark.parametrize("url", ["http://localhost:8787/v1", "http://[::1]:8787/v1"])
+def test_llmgw_accepts_loopback_urls(url: str) -> None:
+    assert LlmgwVendor(url).base_url == url
+
+
+def test_llmgw_problems_name_missing_capabilities_and_profiles() -> None:
+    roles = load_roles(Path(__file__).parents[2] / "config/roles.toml", {})
+    for role in (Role.CASE_CHECK_ITEM, Role.AGENT_MAIN, Role.DOCUMENT_TRANSCRIBE):
+        roles[role] = CLAUDE_SUB
+    roles[Role.MEMORY_EXTRACT] = RoleConfig(vendor="llmgw", model="opus-sub", max_tokens=10)
+    assert llmgw_problems(roles, {"claude-sub", "gpt-sub"}) == [
+        "document.transcribe: llmgw lacks vision",
+        "agent.main: llmgw lacks tool-use",
+        "memory.extract: opus-sub is not an llmgw profile",
+    ]
+
+
+async def test_validate_models_reads_both_listings_from_the_built_vendors() -> None:
+    roles = load_roles(Path(__file__).parents[2] / "config/roles.toml", {})
+    roles[Role.CASE_CHECK_ITEM] = roles[Role.MEMORY_CONSOLIDATE] = CLAUDE_SUB
+    llm = LlmClient(roles, {"gateway": GatewayVendor(KEY), "llmgw": LlmgwVendor(LLMGW + "/")})
+
+    def reply(profiles: list[str]) -> Callable[[httpx2.Request], httpx2.Response]:
+        def answer(request: httpx2.Request) -> httpx2.Response:
+            if request.url.host == "127.0.0.1":
+                return httpx2.Response(200, json={"data": [{"id": p} for p in profiles]})
+            return httpx2.Response(200, json=_listing())
+
+        return answer
+
+    seen: Seen = []
+    await validate_models(llm, _http(reply(["gpt-sub", "claude-sub"]), seen))
+    assert sorted(str(r.url) for r in seen) == [
+        "http://127.0.0.1:8787/v1/models",
+        "https://ai-gateway.vercel.sh/v1/models",
+    ]
+    with pytest.raises(ConfigError) as info:
+        await validate_models(llm, _http(reply(["gpt-sub"]), []))
+    assert str(info.value) == (
+        "refusing to start: case.check_item: claude-sub is not an llmgw profile; "
+        "memory.consolidate: claude-sub is not an llmgw profile"
+    )
+    with pytest.raises(ConfigError, match="could not read the llmgw model list"):
+        await validate_models(
+            llm,
+            _http(
+                lambda r: httpx2.Response(
+                    503 if r.url.host == "127.0.0.1" else 200, json=_listing()
+                ),
+                [],
+            ),
+        )
+
+
+def test_build_client_needs_the_llmgw_url(tmp_path: Path) -> None:
+    env = {
+        "CAIRN_ROLE_CASE_CHECK_ITEM_VENDOR": "llmgw",
+        "CAIRN_ROLE_CASE_CHECK_ITEM_MODEL": "claude-sub",
+    }
+    keyed = make_settings(tmp_path / "h", tmp_path / "c", AI_GATEWAY_API_KEY=KEY)
+    with pytest.raises(ConfigError, match="CAIRN_LLMGW_BASE_URL is not set"):
+        build_client(keyed, env=env)
+    local = make_settings(
+        tmp_path / "h", tmp_path / "c", AI_GATEWAY_API_KEY=KEY, llmgw_base_url=LLMGW
+    )
+    assert set(build_client(local, env=env).vendors) == {"gateway", "llmgw"}

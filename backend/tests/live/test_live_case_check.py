@@ -5,6 +5,7 @@ asserts what must hold: the two planted conflicts are found, the unreadable phot
 """
 
 import uuid
+from collections import Counter
 from pathlib import Path
 
 import pytest
@@ -30,11 +31,16 @@ async def test_sample_consistency_check_live(
     """On a real-time server: a vendor's Retry-After must really be waited, not skipped."""
     if not GATEWAY_KEY:
         pytest.skip("AI_GATEWAY_API_KEY is not set: live end-to-end check skipped")
+    env = role_env(ENV_FILE)
     settings = make_settings(
-        home, cases_dir, AI_GATEWAY_API_KEY=GATEWAY_KEY, task_queue=f"live-{uuid.uuid4()}"
+        home,
+        cases_dir,
+        AI_GATEWAY_API_KEY=GATEWAY_KEY,
+        llmgw_base_url=env.get("CAIRN_LLMGW_BASE_URL", ""),
+        task_queue=f"live-{uuid.uuid4()}",
     )
-    llm = build_client(settings, env=role_env(ENV_FILE))
-    await validate_models(llm.roles)
+    llm = build_client(settings, env=env)
+    await validate_models(llm)
     _upload_sample(cases_dir)
     async with build_worker(settings, temporal_env.client, llm):
         summary = await temporal_env.client.execute_workflow(
@@ -49,3 +55,6 @@ async def test_sample_consistency_check_live(
     conflict_categories = {facts[c.fact_ids[0]].category for c in result.conflicts}
     assert {"employment.period", "address.period"} <= conflict_categories
     assert [g.doc_id for g in result.gaps] == ["unreadable-photo"]
+    routes = Counter((c.role, c.vendor, c.model) for c in result.calls)
+    print("".join(f"\n{n} x {r} -> {v} {m}" for (r, v, m), n in sorted(routes.items())))
+    assert set(routes) <= {(r.value, c.vendor, c.model) for r, c in llm.roles.items()}
