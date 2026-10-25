@@ -18,6 +18,9 @@ from cairn.core.cases.wording import template_question, template_summary, uses_b
 QUALIFIER_MATCH = 0.90
 _DATE = re.compile(r"^(\d{4})(?:-(\d{2})(?:-(\d{2}))?)?$")
 _WORD = re.compile(r"\w+")
+# A person lives at one address at a time, so two different addresses with overlapping periods
+# conflict; jobs, trips and family members can overlap (design §8.4).
+ONE_PLACE_AT_A_TIME = frozenset({"address.period"})
 OPEN_END = ".."
 
 
@@ -73,10 +76,16 @@ def parse_normalised(kind: Kind, text: str) -> Normalised:
     return normalise_ws(text).casefold()
 
 
+def _coarse(a: PartialDate, b: PartialDate) -> tuple[tuple[int, ...], tuple[int, ...]]:
+    """Both dates cut to the coarser of their precisions."""
+    precision = min(a.precision(), b.precision())
+    return a.truncated(precision), b.truncated(precision)
+
+
 def dates_agree(a: PartialDate, b: PartialDate) -> bool:
     """Compare at the coarser precision: 2022-03 agrees with 2022-03-14."""
-    precision = min(a.precision(), b.precision())
-    return a.truncated(precision) == b.truncated(precision)
+    first, second = _coarse(a, b)
+    return first == second
 
 
 def values_agree(a: Normalised, b: Normalised) -> bool:
@@ -184,14 +193,56 @@ def _disagree_across_documents(facts: Sequence[Fact], kind: Kind) -> bool:
     return False
 
 
+def _before(start: PartialDate, end: PartialDate | None) -> bool:
+    """`start` falls before `end` at the coarser precision; an open end is never reached."""
+    if end is None:
+        return True
+    first, second = _coarse(start, end)
+    return first < second
+
+
+def _overlap(a: Period, b: Period) -> bool:
+    """Strict overlap: a move-out and move-in in the same month only touch."""
+    return _before(a.start, b.end) and _before(b.start, a.end)
+
+
+def _overlapping_places(groups: Sequence[Sequence[Fact]]) -> list[list[str]]:
+    """Facts about different places for one person whose periods overlap across documents."""
+    by_person: dict[tuple[str, str], list[Sequence[Fact]]] = {}
+    for group in groups:
+        by_person.setdefault((group[0].category, _key_text(group[0].subject)), []).append(group)
+    periods = {f.fact_id: parse_period(f.normalised) for g in groups for f in g}
+    found: list[list[str]] = []
+    for places in by_person.values():
+        for i, first in enumerate(places):
+            for second in places[i + 1 :]:
+                ids: set[str] = set()
+                for a in first:
+                    for b in second:
+                        if a.doc_id != b.doc_id and _overlap(
+                            periods[a.fact_id], periods[b.fact_id]
+                        ):
+                            ids.update((a.fact_id, b.fact_id))
+                if ids:
+                    found.append([f.fact_id for f in (*first, *second) if f.fact_id in ids])
+    return found
+
+
 def rule_baseline(facts: Sequence[Fact], categories: Sequence[Category]) -> list[list[str]]:
-    """Fact-id sets, one per group whose values differ between documents (in fact order)."""
+    """Fact-id sets: one per group whose values differ between documents (in fact order), then
+    one per pair of places in a one-place-at-a-time category whose periods overlap."""
     kinds = kinds_by_id(categories)
+    groups = _groups(facts)
+    exclusive = [
+        g
+        for g in groups
+        if g[0].category in ONE_PLACE_AT_A_TIME and kinds[g[0].category] == "period"
+    ]
     return [
         [f.fact_id for f in group]
-        for group in _groups(facts)
+        for group in groups
         if _disagree_across_documents(group, kinds[group[0].category])
-    ]
+    ] + _overlapping_places(exclusive)
 
 
 def accept_model_conflicts(
@@ -251,7 +302,17 @@ def merge_conflicts(
     replaced = 0
     for n, (ids, origin, proposal) in enumerate(drafts, start=1):
         members = [by_id[i] for i in ids]
-        statements = [(doc_names.get(f.doc_id, f.doc_id), f.page, f.value) for f in members]
+        # Facts about different places (an overlap) name their place next to the value.
+        first = _key_text(members[0].qualifier)
+        places = not all(_qualifiers_match(_key_text(f.qualifier), first) for f in members)
+        statements = [
+            (
+                doc_names.get(f.doc_id, f.doc_id),
+                f.page,
+                f"{f.qualifier}: {f.value}" if places and f.qualifier else f.value,
+            )
+            for f in members
+        ]
         usable = proposal
         if proposal and (
             uses_banned_wording(proposal.question) or uses_banned_wording(proposal.summary)

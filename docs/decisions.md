@@ -221,3 +221,19 @@ layer means no call site changes.
 adds its own system prompt and ignores sampling settings), so a result that matters is re-run on
 an API vendor. `agent.main` and `document.transcribe` stay on `gateway` until the local gateway
 supports tools and images.
+
+## D-20 — Overlapping addresses are a rule conflict, not left to the model
+
+**Decision.** The rule baseline also reports two different addresses for the same person whose
+periods overlap across documents (`ONE_PLACE_AT_A_TIME = {address.period}` in
+`core/cases/facts.py`). The comparison is strict at the coarser precision, so a move within one
+month is not an overlap; facts from one document never conflict with each other.
+
+**Why.** Grouping by qualifier means two different addresses are never compared by rule 1, so an
+address-history gap or contradiction was found only when the model pass happened to propose it.
+In a manual run on 2026-10-25 the same extracted facts produced the conflict on one run and not
+on the next. Coverage is code's job (D-13); the model still adds wording and finds what rules
+cannot.
+
+**Revisit when** another category needs the same rule; then the fact-categories table should
+mark it, rather than a constant in code.

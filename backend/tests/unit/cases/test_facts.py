@@ -216,3 +216,74 @@ def test_merge_consumes_every_covered_or_duplicate_proposal(sample_facts: list[F
         (["f4", "f6", "f11"], ["rule", "model"], "Which start date: March or June 2022?"),
         (["f5", "f7"], ["model"], "Is the role the same in both?"),
     ]
+
+
+def test_overlapping_addresses_from_different_documents_conflict(
+    categories: list[Category],
+) -> None:
+    form, bank, lease = "form", "bank", "lease"
+    facts = [
+        _fact("f1", form, "address.period", "2020-03/..", qualifier="7 Placeholder Road"),
+        _fact("f2", bank, "address.period", "2021-06-01/2021-06-30", qualifier="21 Fictional Ave"),
+        # Moving month: ends 2019-01, next starts 2019-01. Touching, not overlapping.
+        _fact("f3", lease, "address.period", "2018-02/2019-01", qualifier="3 Old Street"),
+        _fact("f4", form, "address.period", "2019-01-15/2020-03", qualifier="9 Middle Road"),
+        # Two jobs at once are normal: employment periods never conflict by overlap.
+        _fact("f5", form, "employment.period", "2020-01/..", qualifier="Demo Orchards Ltd"),
+        _fact("f6", bank, "employment.period", "2021-01/..", qualifier="Night Cafe Ltd"),
+    ]
+    assert rule_baseline(facts, categories) == [["f1", "f2"]]
+
+
+def test_overlap_needs_two_documents_and_the_same_person(categories: list[Category]) -> None:
+    facts = [
+        _fact("f1", "form", "address.period", "2020-03/..", qualifier="7 Placeholder Road"),
+        _fact("f2", "form", "address.period", "2021-06/2021-07", qualifier="21 Fictional Ave"),
+        _fact(
+            "f3",
+            "bank",
+            "address.period",
+            "2021-06/2021-07",
+            qualifier="21 Fictional Ave",
+            subject="partner",
+        ),
+    ]
+    assert rule_baseline(facts, categories) == []
+
+
+def test_overlap_conflicts_name_each_address_in_the_template() -> None:
+    facts = [
+        _fact(
+            "f1",
+            "form",
+            "address.period",
+            "2020-03/..",
+            qualifier="7 Placeholder Road",
+            value="from March 2020",
+        ),
+        _fact(
+            "f2",
+            "bank",
+            "address.period",
+            "2021-06/2021-06",
+            qualifier="21 Fictional Ave",
+            value="June 2021",
+        ),
+    ]
+    [conflict], _ = merge_conflicts([["f1", "f2"]], [], facts, {"form": "Form", "bank": "Bank"})
+    assert conflict.question == (
+        "Form (page 1) gives 7 Placeholder Road: from March 2020; "
+        "Bank (page 1) gives 21 Fictional Ave: June 2021. Which is correct?"
+    )
+
+
+def test_fuzzy_matched_qualifiers_are_one_place_in_the_template() -> None:
+    facts = [
+        _fact("f1", "a", "employment.period", "2022-03/..", qualifier="Example Freight Ltd"),
+        _fact("f2", "b", "employment.period", "2022-06/..", qualifier="Exampel Freight Ltd"),
+    ]
+    [conflict], _ = merge_conflicts([["f1", "f2"]], [], facts, {"a": "A", "b": "B"})
+    assert (
+        conflict.question
+        == "A (page 1) gives 2022-03/..; B (page 1) gives 2022-06/... Which is correct?"
+    )

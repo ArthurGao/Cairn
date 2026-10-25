@@ -692,6 +692,11 @@ never read env). Activities that call a model bound their own concurrency to `co
    (`Maintenance Engineer` agrees with `Maintenance Engineer, permanent full-time`); the model
    pass still judges text values. The extraction prompt (v2) asks for the bare value in text
    categories, so added detail rarely reaches this rule.
+   **Overlapping places.** In a one-place-at-a-time category (`address.period`; jobs, trips and
+   family members may overlap), two groups for the same subject whose qualifiers (addresses)
+   differ conflict when facts from different documents have overlapping periods — strictly, at
+   the coarser precision, so moving out and in within one month only touches (D-20). The
+   template wording names each address next to its value.
 2. **Model pass.** Role `case.compare_facts` gets the accepted facts (ids, values, document
    names — no page text) and the skill body; returns `{conflicts: [{fact_ids, summary, question}]}`.
    Code accepts one only if every id exists, the facts come from ≥ 2 documents, and they share a
