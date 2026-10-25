@@ -177,6 +177,8 @@ def test_prompts_are_versioned() -> None:
         "case_extract_facts",
         "case_compare_facts",
         "case_check_item",
+        "case_read_letter",
+        "case_match_evidence",
     ):
         version, text = load_prompt(name)
         assert (name, version) == (name, "2" if name == "case_extract_facts" else "1")

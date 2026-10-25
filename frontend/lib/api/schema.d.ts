@@ -482,6 +482,12 @@ export interface components {
         Body_uploadDocuments: {
             /** Files */
             files: string[];
+            /**
+             * Source
+             * @default client
+             * @enum {string}
+             */
+            source: "client" | "inz";
         };
         /** CallRecord */
         CallRecord: {
@@ -579,7 +585,9 @@ export interface components {
              * Kind
              * @enum {string}
              */
-            kind: "consistency" | "presubmission";
+            kind: "consistency" | "presubmission" | "letter";
+            /** Letter Doc Id */
+            letter_doc_id: string | null;
             signed_off: components["schemas"]["SignOff"] | null;
             /**
              * Started
@@ -605,6 +613,11 @@ export interface components {
              */
             clean: boolean;
             /**
+             * Concerns
+             * @default 0
+             */
+            concerns: number;
+            /**
              * Conflicts
              * @default 0
              */
@@ -614,6 +627,11 @@ export interface components {
              * @default 0
              */
             gaps: number;
+            /**
+             * Not Supported
+             * @default 0
+             */
+            not_supported: number;
             /**
              * Pending
              * @default 0
@@ -656,7 +674,8 @@ export interface components {
              * Kind
              * @enum {string}
              */
-            kind: "consistency" | "presubmission";
+            kind: "consistency" | "presubmission" | "letter";
+            letter: components["schemas"]["LetterResult"] | null;
             /**
              * Started
              * Format: date-time
@@ -703,13 +722,13 @@ export interface components {
              * Kind
              * @enum {string}
              */
-            kind: "consistency" | "presubmission";
+            kind: "consistency" | "presubmission" | "letter";
             /**
              * Step
              * @default starting
              * @enum {string}
              */
-            step: "starting" | "ingesting" | "extracting" | "comparing" | "checking" | "writing" | "done" | "failed";
+            step: "starting" | "ingesting" | "extracting" | "comparing" | "reading" | "checking" | "writing" | "done" | "failed";
             /**
              * Units Done
              * @default 0
@@ -729,13 +748,15 @@ export interface components {
             case_id: string;
             /** Check Id */
             check_id: string;
+            /** Deadline Working Days */
+            deadline_working_days: number | null;
             /** Error */
             error: string | null;
             /**
              * Kind
              * @enum {string}
              */
-            kind: "consistency" | "presubmission";
+            kind: "consistency" | "presubmission" | "letter";
             /** Notes */
             notes: {
                 [key: string]: string;
@@ -830,6 +851,34 @@ export interface components {
             /** Workflow Id */
             workflow_id: string;
         };
+        /** Concern */
+        Concern: {
+            /** Citations */
+            citations: components["schemas"]["Citation"][];
+            /** Client Request */
+            client_request: string | null;
+            /** Conflict Ids */
+            conflict_ids: string[];
+            /** Downgraded */
+            downgraded: ("missing" | "no_valid_citation" | "call_failed") | null;
+            /** Finding */
+            finding: string;
+            /** Finding Id */
+            finding_id: string;
+            /** Page */
+            page: number;
+            /** Passages */
+            passages: string[];
+            /** Quote */
+            quote: string;
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "supported" | "partial" | "no_evidence" | "unable";
+            /** Summary */
+            summary: string;
+        };
         /** Conflict */
         Conflict: {
             /**
@@ -892,6 +941,25 @@ export interface components {
             /** Pages Unreadable */
             pages_unreadable: number;
         };
+        /** Deadline */
+        Deadline: {
+            /** Due */
+            due: string | null;
+            /**
+             * Finding Id
+             * @default d1
+             */
+            finding_id: string;
+            /** Page */
+            page: number | null;
+            /** Quote */
+            quote: string | null;
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "verified" | "unverified" | "missing";
+        };
         /** Document */
         Document: {
             /** Bytes */
@@ -908,6 +976,12 @@ export interface components {
             pages: components["schemas"]["PageRef"][];
             /** Sha256 */
             sha256: string;
+            /**
+             * Source
+             * @default client
+             * @enum {string}
+             */
+            source: "client" | "inz";
             /**
              * Status
              * @default pending
@@ -1065,6 +1139,28 @@ export interface components {
              * @enum {string}
              */
             status: "checked" | "pending" | "unable";
+        };
+        /** LetterResult */
+        LetterResult: {
+            /**
+             * Client Email
+             * @default
+             */
+            client_email: string;
+            /** Concerns */
+            concerns: components["schemas"]["Concern"][];
+            deadline: components["schemas"]["Deadline"];
+            /** Doc Id */
+            doc_id: string;
+            /** Related Check Id */
+            related_check_id: string | null;
+            /**
+             * Reply Outline
+             * @default
+             */
+            reply_outline: string;
+            /** Unaccounted */
+            unaccounted: components["schemas"]["Unaccounted"][];
         };
         /** Manifest */
         Manifest: {
@@ -1367,7 +1463,9 @@ export interface components {
              * Kind
              * @enum {string}
              */
-            kind: "consistency" | "presubmission";
+            kind: "consistency" | "presubmission" | "letter";
+            /** Letter Doc Id */
+            letter_doc_id?: string | null;
         };
         /** StartRun */
         StartRun: {
@@ -1408,6 +1506,20 @@ export interface components {
             tool: string | null;
             /** Truncated */
             truncated: boolean | null;
+        };
+        /**
+         * Unaccounted
+         * @description A passage the model put in no concern and not in the context list.
+         */
+        Unaccounted: {
+            /** Finding Id */
+            finding_id: string;
+            /** Page */
+            page: number;
+            /** Passage Id */
+            passage_id: string;
+            /** Text */
+            text: string;
         };
         /** UsageEntry */
         UsageEntry: {

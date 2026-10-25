@@ -5,15 +5,19 @@ from pathlib import Path
 import pytest
 
 from cairn.core.cases import store
-from cairn.core.cases.coverage import build_coverage, build_gaps, is_clean
+from cairn.core.cases.coverage import build_coverage, build_gaps, in_scope, is_clean
 from cairn.core.cases.models import (
     CheckResult,
+    Concern,
     Conflict,
     Coverage,
+    Deadline,
     Gap,
     ItemResult,
+    LetterResult,
     Page,
     PageRef,
+    Unaccounted,
 )
 from cairn.errors import CairnError
 from tests.unit.cases.conftest import SAMPLE
@@ -266,3 +270,61 @@ def test_a_signed_off_check_is_closed(case: Path) -> None:
             attempt()
         assert (info.value.code, info.value.status) == ("signed_off", 409)
     assert [e.action for e in store.read_audit(case, "C1")] == ["signed_off"]
+
+
+def test_an_inz_letter_is_stored_with_its_source(case: Path) -> None:
+    _upload(case, "D1", "tenancy.pdf")
+    data = (SAMPLE.parent / "letters" / "ppi-aewv.pdf").read_bytes()
+    store.add_document(case, "C1", "L1", "ppi-aewv.pdf", data, NOW, LIMITS, source="inz")
+    store.add_document(case, "C1", "L2", "older-ppi.pdf", data[:-1], NOW, LIMITS, source="inz")
+    manifest = store.load_manifest(case, "C1")
+    assert [(d.doc_id, d.source) for d in manifest.documents] == [
+        ("D1", "client"),
+        ("L1", "inz"),
+        ("L2", "inz"),
+    ]
+    # Other checks never read a letter, so it is not a gap for them; a letter check reads only
+    # the letter it replies to.
+    assert [g.doc_id for g in build_gaps(in_scope(manifest))] == ["D1"]
+    assert [g.doc_id for g in build_gaps(in_scope(manifest, "L1"))] == ["D1", "L1"]
+
+
+def _letter(**kw: object) -> LetterResult:
+    concern = Concern(
+        finding_id="q1",
+        summary="Police certificate",
+        passages=["P10"],
+        page=1,
+        quote="none has been received",
+        status="supported",
+        finding="Listed in the cover letter",
+    )
+    base: dict[str, object] = {
+        "doc_id": "L1",
+        "deadline": Deadline(status="verified"),
+        "concerns": [concern],
+    }
+    return LetterResult.model_validate(base | kw)
+
+
+def test_letter_findings_all_need_review_before_signoff(case: Path) -> None:
+    unaccounted = Unaccounted(finding_id="u1", passage_id="P15", page=2, text="A. Officer")
+    result = _result(kind="letter", items=[], letter=_letter(unaccounted=[unaccounted]))
+    store.write_result(case, result)
+    assert store.signoff_blockers(result, []) == ["d1", "q1", "u1", "g1"]
+    for finding in ("d1", "q1", "u1", "g1"):
+        store.record_review(case, result, finding, "confirmed", None, "A. Adviser", NOW)
+    assert store.sign_off(case, result, "A. Adviser", NOW).action == "signed_off"
+
+
+def test_a_letter_is_clean_only_when_everything_is_settled_by_evidence() -> None:
+    def clean(**kw: object) -> bool:
+        return is_clean(_result(kind="letter", items=[], gaps=[], letter=_letter(**kw)))
+
+    assert clean()
+    assert not clean(deadline=Deadline(status="unverified"))
+    unaccounted = Unaccounted(finding_id="u1", passage_id="P15", page=2, text="A. Officer")
+    assert not clean(unaccounted=[unaccounted])
+    partial = _letter().concerns[0].model_copy(update={"status": "partial"})
+    assert not clean(concerns=[partial])
+    assert not is_clean(_result(kind="letter", items=[], letter=_letter()))  # the open gap

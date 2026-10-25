@@ -13,8 +13,11 @@ from cairn.core.cases.models import (
     CallRecord,
     CheckKind,
     Dropped,
+    EvidenceReply,
     Fact,
     ItemReply,
+    LetterConcern,
+    LetterRead,
     ModelConflict,
 )
 from cairn.core.model import Model
@@ -29,6 +32,7 @@ class CheckInput(Model):
     case_id: str
     kind: CheckKind
     checklist_skill: str | None = None
+    letter_doc_id: str | None = None  # kind letter: the INZ letter to reply to (§8.8)
     map_budget: int = 100_000
     case_context_budget: int = 150_000
     min_page_chars: int = 40
@@ -38,7 +42,15 @@ class CheckInput(Model):
 
 
 Step = Literal[
-    "starting", "ingesting", "extracting", "comparing", "checking", "writing", "done", "failed"
+    "starting",
+    "ingesting",
+    "extracting",
+    "comparing",
+    "reading",
+    "checking",
+    "writing",
+    "done",
+    "failed",
 ]
 
 
@@ -65,10 +77,12 @@ class SpecItem(Model):
 class CheckSpec(Model):
     """What `load_check_spec` resolved: loaded by code, never chosen by the model (D-13)."""
 
-    doc_ids: list[str]  # every document in the case, manifest order
+    doc_ids: list[str]  # every document the check covers, manifest order
     pending_doc_ids: list[str]  # not yet ingested
     checklist_version: str | None = None
     items: list[SpecItem] = Field(default_factory=list[SpecItem])
+    # kind letter: the latest completed consistency check, whose conflicts are offered (§8.8)
+    related_check_id: str | None = None
 
 
 class IngestInput(Model):
@@ -127,6 +141,28 @@ class ItemsOutcome(Model):
     calls: list[CallRecord] = Field(default_factory=list[CallRecord])
 
 
+class ReadLetterInput(Model):
+    case_id: str
+    letter_doc_id: str
+
+
+class ReadLetterOutcome(LetterRead):
+    """The letter's validated reading: quotes and passage text only, never whole pages."""
+
+    calls: list[CallRecord] = Field(default_factory=list[CallRecord])
+
+
+class MatchInput(Model):
+    case_id: str
+    concerns: list[LetterConcern]
+    related_check_id: str | None = None
+
+
+class MatchOutcome(Model):
+    replies: list[EvidenceReply]
+    calls: list[CallRecord] = Field(default_factory=list[CallRecord])
+
+
 class MeasureInput(Model):
     case_id: str
     budget: int
@@ -143,6 +179,10 @@ class FinishInput(Model):
     replies: list[ItemReply] = Field(default_factory=list[ItemReply])
     failed_items: list[str] = Field(default_factory=list[str])
     extraction_failures: dict[str, str] = Field(default_factory=dict[str, str])
+    letter: LetterRead | None = None
+    evidence: list[EvidenceReply] = Field(default_factory=list[EvidenceReply])
+    failed_concerns: list[str] = Field(default_factory=list[str])
+    related_check_id: str | None = None
     calls: list[CallRecord] = Field(default_factory=list[CallRecord])
     error: str | None = None  # set: the check failed as a whole; no findings are written
 
@@ -155,5 +195,7 @@ class CheckSummary(Model):
     checked: int = 0
     pending: int = 0
     unable: int = 0
+    concerns: int = 0
+    not_supported: int = 0  # letter concerns the case's documents do not fully support
     gaps: int = 0
     clean: bool = False

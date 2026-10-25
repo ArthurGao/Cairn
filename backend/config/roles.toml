@@ -21,6 +21,18 @@ model = "anthropic/claude-sonnet-5.5"
 effort = "medium"
 max_tokens = 8000
 
+[roles."case.read_letter"]
+vendor = "gateway"
+model = "anthropic/claude-sonnet-5.5"
+effort = "medium"
+max_tokens = 8000
+
+[roles."case.match_evidence"]
+vendor = "gateway"
+model = "anthropic/claude-sonnet-5.5"
+effort = "medium"
+max_tokens = 8000
+
 [roles."document.transcribe"]
 vendor = "gateway"
 model = "anthropic/claude-sonnet-5.5"

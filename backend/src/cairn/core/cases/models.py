@@ -1,6 +1,6 @@
 """Case store file shapes (design §4.7-§4.10) and the inputs code validates (§8.3-§8.5)."""
 
-from datetime import datetime
+from datetime import date, datetime
 from typing import Literal
 
 from pydantic import Field
@@ -10,7 +10,10 @@ from cairn.core.model import Model
 DataClass = Literal["synthetic", "client"]
 PageMethod = Literal["text", "transcribed", "unreadable"]
 DocStatus = Literal["pending", "ingested", "failed"]
-CheckKind = Literal["consistency", "presubmission"]
+CheckKind = Literal["consistency", "presubmission", "letter"]
+DocSource = Literal["client", "inz"]  # inz: a letter from INZ, never evidence (§8.8)
+EvidenceStatus = Literal["supported", "partial", "no_evidence", "unable"]
+DeadlineStatus = Literal["verified", "unverified", "missing"]
 ItemStatus = Literal["checked", "pending", "unable"]
 Downgrade = Literal["missing", "no_valid_citation", "call_failed"]
 ReviewAction = Literal["confirmed", "dismissed", "resolved", "reopened"]
@@ -37,6 +40,7 @@ class Document(Model):
     status: DocStatus = "pending"
     error: str | None = None
     pages: list[PageRef] = Field(default_factory=list[PageRef])
+    source: DocSource = "client"
 
 
 class Manifest(Model):
@@ -97,6 +101,40 @@ class ItemReply(Model):
     citations: list[Citation] = Field(default_factory=list[Citation])
 
 
+class RawDeadline(Model):
+    """The reply deadline as `case.read_letter` reads it: an ISO date and its quote."""
+
+    date: str
+    quote: str
+    page: int
+
+
+class RawConcern(Model):
+    summary: str
+    passages: list[str]
+    quote: str
+    page: int
+
+
+class LetterReading(Model):
+    """`case.read_letter`'s reply before validation (§8.8)."""
+
+    deadline: RawDeadline | None = None
+    concerns: list[RawConcern] = Field(default_factory=list[RawConcern])
+    context_passages: list[str] = Field(default_factory=list[str])
+
+
+class EvidenceReply(Model):
+    """`case.match_evidence`'s reply for one concern, before validation (§8.8)."""
+
+    concern_id: str
+    status: EvidenceStatus
+    finding: str
+    citations: list[Citation] = Field(default_factory=list[Citation])
+    client_request: str | None = None
+    conflict_ids: list[str] = Field(default_factory=list[str])
+
+
 # --- §4.9 check result ----------------------------------------------------------------------
 
 
@@ -135,9 +173,73 @@ class Gap(Model):
     reason: str
 
 
+class Passage(Model):
+    """A numbered stretch of the letter's text; every one must be accounted for (§8.8)."""
+
+    passage_id: str
+    page: int
+    text: str
+
+
+class Deadline(Model):
+    finding_id: str = "d1"
+    status: DeadlineStatus
+    due: date | None = None
+    quote: str | None = None
+    page: int | None = None
+
+
+class LetterConcern(Model):
+    """One INZ concern as read from the letter, validated, before evidence is matched."""
+
+    finding_id: str
+    summary: str
+    passages: list[str]
+    page: int
+    quote: str
+
+
+class Concern(LetterConcern):
+    status: EvidenceStatus
+    finding: str
+    citations: list[Citation] = Field(default_factory=list[Citation])
+    client_request: str | None = None
+    conflict_ids: list[str] = Field(default_factory=list[str])
+    downgraded: Downgrade | None = None
+
+
+class Unaccounted(Model):
+    """A passage the model put in no concern and not in the context list."""
+
+    finding_id: str
+    passage_id: str
+    page: int
+    text: str
+
+
+class LetterResult(Model):
+    doc_id: str
+    related_check_id: str | None = None  # the consistency check whose conflicts were offered
+    deadline: Deadline
+    concerns: list[Concern] = Field(default_factory=list[Concern])
+    unaccounted: list[Unaccounted] = Field(default_factory=list[Unaccounted])
+    client_email: str = ""
+    reply_outline: str = ""
+
+
 class Dropped(Model):
     reason: str
     detail: str
+
+
+class LetterRead(Model):
+    """The letter's validated reading, before evidence is matched (§8.8)."""
+
+    deadline: Deadline
+    concerns: list[LetterConcern]
+    unaccounted: list[Unaccounted]
+    dropped: list[Dropped]
+    replaced: int = 0
 
 
 class Coverage(Model):
@@ -178,14 +280,23 @@ class CheckResult(Model):
     conflicts: list[Conflict] = Field(default_factory=list[Conflict])
     items: list[ItemResult] = Field(default_factory=list[ItemResult])
     gaps: list[Gap] = Field(default_factory=list[Gap])
+    letter: LetterResult | None = None
     dropped: list[Dropped] = Field(default_factory=list[Dropped])
     wording_replacements: int = 0
     calls: list[CallRecord] = Field(default_factory=list[CallRecord])
 
     def finding_ids(self) -> list[str]:
+        letter: list[str] = []
+        if self.letter:
+            letter = [
+                self.letter.deadline.finding_id,
+                *(c.finding_id for c in self.letter.concerns),
+                *(u.finding_id for u in self.letter.unaccounted),
+            ]
         return (
             [c.finding_id for c in self.conflicts]
             + [i.finding_id for i in self.items]
+            + letter
             + [g.finding_id for g in self.gaps]
         )
 
@@ -197,6 +308,7 @@ class CheckStart(Model):
     check_id: str
     kind: CheckKind
     checklist_skill: str | None = None
+    letter_doc_id: str | None = None
     started: datetime
 
 

@@ -17,7 +17,16 @@ from temporalio.exceptions import ActivityError
 
 with workflow.unsafe.imports_passed_through():
     from cairn.activities.cases import CaseActivities
-    from cairn.core.cases.models import CallRecord, Dropped, Fact, ItemReply, ModelConflict
+    from cairn.core.cases.models import (
+        CallRecord,
+        Dropped,
+        EvidenceReply,
+        Fact,
+        ItemReply,
+        LetterConcern,
+        LetterRead,
+        ModelConflict,
+    )
     from cairn.workflows.case_models import (
         CheckInput,
         CheckSpec,
@@ -28,8 +37,10 @@ with workflow.unsafe.imports_passed_through():
         IngestInput,
         ItemsInput,
         MarkFailedInput,
+        MatchInput,
         MeasureInput,
         ProposeInput,
+        ReadLetterInput,
     )
     from cairn.workflows.common import FILE_TIMEOUT, MODEL_RETRY, RETRY, reason_of
 
@@ -104,6 +115,8 @@ class CaseCheckWorkflow:
         await _in_batches(spec.pending_doc_ids, check.concurrency, ingest)
         if check.kind == "consistency":
             return await self._consistency(state, check, spec, started)
+        if check.kind == "letter":
+            return await self._letter(state, check, spec, started)
         return await self._presubmission(state, check, spec, started)
 
     async def _consistency(
@@ -186,6 +199,53 @@ class CaseCheckWorkflow:
 
         await _in_batches(batches, check.concurrency, run_batch)
         return await self._finish(state, check, started, replies=replies, failed_items=failed)
+
+    async def _letter(
+        self, state: CheckState, check: CheckInput, spec: CheckSpec, started: datetime
+    ) -> CheckSummary:
+        """Read the letter, then match every concern to the case's evidence (§8.8)."""
+        measured = await self._step(
+            CaseActivities.measure_case,
+            MeasureInput(case_id=check.case_id, budget=check.case_context_budget),
+            model=False,
+        )
+        if isinstance(measured, str):
+            return await self._finish(state, check, started, error=measured)
+
+        state.step = "reading"
+        job = ReadLetterInput(case_id=check.case_id, letter_doc_id=check.letter_doc_id or "")
+        read = await self._step(CaseActivities.read_letter, job)
+        if isinstance(read, str):
+            return await self._finish(state, check, started, error=read)
+
+        state.step = "checking"
+        size = max(1, check.item_batch_size)
+        batches = [read.concerns[i : i + size] for i in range(0, len(read.concerns), size)]
+        state.units_total = len(batches)
+        replies: list[EvidenceReply] = []
+        failed: list[str] = []
+
+        async def match(batch: list[LetterConcern]) -> None:
+            job = MatchInput(
+                case_id=check.case_id, concerns=batch, related_check_id=spec.related_check_id
+            )
+            outcome = await self._step(CaseActivities.match_evidence, job)
+            if isinstance(outcome, str):
+                failed.extend(c.finding_id for c in batch)
+            else:
+                replies.extend(outcome.replies)
+            state.units_done += 1
+
+        await _in_batches(batches, check.concurrency, match)
+        return await self._finish(
+            state,
+            check,
+            started,
+            letter=LetterRead.model_validate(read.model_dump(exclude={"calls"})),
+            evidence=replies,
+            failed_concerns=failed,
+            related_check_id=spec.related_check_id,
+        )
 
     async def _finish(
         self, state: CheckState, check: CheckInput, started: datetime, **fields: object

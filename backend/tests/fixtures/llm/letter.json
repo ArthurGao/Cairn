@@ -1,0 +1,126 @@
+[
+  {
+    "role": "case.read_letter",
+    "match": "Letter: ppi-aewv.pdf",
+    "repeat": true,
+    "reply": {
+      "data": {
+        "deadline": {
+          "date": "2026-11-07",
+          "quote": "If you do not respond by 7 November 2026",
+          "page": 2
+        },
+        "concerns": [
+          {
+            "summary": "The start date with Example Freight Ltd differs between the questionnaire and the employer's letter",
+            "passages": [
+              "P8",
+              "P9"
+            ],
+            "quote": "start date with Example Freight Ltd as 03/2022",
+            "page": 1
+          },
+          {
+            "summary": "A police certificate is listed but INZ has not received one",
+            "passages": [
+              "P10"
+            ],
+            "quote": "none has been received",
+            "page": 1
+          },
+          {
+            "summary": "When the applicant began living at 12 Example Street",
+            "passages": [
+              "P11",
+              "P12"
+            ],
+            "quote": "lived at 12 Example Street since",
+            "page": 1
+          }
+        ],
+        "context_passages": [
+          "P1",
+          "P2",
+          "P3",
+          "P4",
+          "P5",
+          "P6",
+          "P7",
+          "P13",
+          "P14"
+        ]
+      },
+      "tokens_in": 900,
+      "tokens_out": 300
+    }
+  },
+  {
+    "role": "case.match_evidence",
+    "match": "INZ's concerns:",
+    "repeat": true,
+    "reply": {
+      "data": {
+        "results": [
+          {
+            "concern_id": "q1",
+            "status": "partial",
+            "finding": "The questionnaire gives March 2022 and the employer's letter gives 1 June 2022.",
+            "citations": [
+              {
+                "doc_id": "{{doc:questionnaire.pdf}}",
+                "page": 2,
+                "quote": "Start date: 03/2022"
+              },
+              {
+                "doc_id": "{{doc:employer-letter.pdf}}",
+                "page": 1,
+                "quote": "since 1 June 2022."
+              }
+            ],
+            "client_request": "Payslips or an employment agreement showing your first day at Example Freight Ltd",
+            "conflict_ids": [
+              "c2"
+            ]
+          },
+          {
+            "concern_id": "q2",
+            "status": "no_evidence",
+            "finding": "The cover letter lists a police certificate as Appendix 7, but no certificate is in the case.",
+            "citations": [
+              {
+                "doc_id": "{{doc:cover-letter.pdf}}",
+                "page": 1,
+                "quote": "Appendix 7 police certificate."
+              },
+              {
+                "doc_id": "{{doc:ppi-aewv.pdf}}",
+                "page": 1,
+                "quote": "none has been received"
+              }
+            ],
+            "client_request": "Your police certificate",
+            "conflict_ids": []
+          },
+          {
+            "concern_id": "q3",
+            "status": "partial",
+            "finding": "The tenancy agreement starts on 1 May 2021; nothing covers January to April 2021.",
+            "citations": [
+              {
+                "doc_id": "{{doc:tenancy.pdf}}",
+                "page": 1,
+                "quote": "Tenancy start date: 1 May 2021"
+              }
+            ],
+            "client_request": "A letter, bill or bank statement addressed to you at 12 Example Street from January to April 2021",
+            "conflict_ids": [
+              "c1"
+            ]
+          }
+        ]
+      },
+      "tokens_in": 4000,
+      "tokens_out": 500
+    }
+  }
+]

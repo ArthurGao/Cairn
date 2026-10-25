@@ -15,6 +15,7 @@ from reportlab.lib.pagesizes import A4
 from reportlab.pdfgen.canvas import Canvas
 
 OUT = Path(__file__).parent / "aewv-sample"
+LETTERS_OUT = Path(__file__).parent / "letters"
 
 # filename -> pages -> lines
 DOCS: dict[str, list[list[str]]] = {
@@ -76,6 +77,35 @@ DOCS: dict[str, list[list[str]]] = {
     ],
 }
 
+# Synthetic INZ letters (design §8.8), kept out of `aewv-sample/` because they are not evidence.
+# The PPI raises three concerns about the sample case: the start-date mismatch, the police
+# certificate that never arrived, and the address date the tenancy does not support.
+LETTERS: dict[str, list[list[str]]] = {
+    "ppi-aewv.pdf": [
+        [
+            "Immigration New Zealand (sample letter - not a real document)",
+            "Our reference: SAMPLE-0001",
+            "24 October 2026",
+            "Dear Alex Sample",
+            "Re: Accredited Employer Work Visa application",
+            "We are writing about your application for an Accredited Employer Work Visa.",
+            "Before we decide it, you have the chance to comment on the following concerns.",
+            "1. Your questionnaire gives your start date with Example Freight Ltd as 03/2022.",
+            "Your employer's letter states you have been employed since 1 June 2022.",
+            "2. Your application lists a police certificate, but none has been received.",
+            "3. Your application form states you have lived at 12 Example Street since",
+            "January 2021.",
+        ],
+        [
+            "Please provide evidence of when you began living at this address.",
+            "If you do not respond by 7 November 2026, we will decide your application on the",
+            "information we hold.",
+            "Yours sincerely",
+            "A. Officer, Immigration Officer",
+        ],
+    ]
+}
+
 # What the fake transcriber returns for the passport image in M2.
 PASSPORT_LINES = [
     "SAMPLE PASSPORT - NOT A REAL DOCUMENT",
@@ -120,6 +150,9 @@ def main() -> None:
         write_pdf(OUT / filename, pages)
     write_passport(OUT / "passport-scan.png")
     write_unreadable(OUT / "unreadable-photo.jpg")
+    LETTERS_OUT.mkdir(exist_ok=True)
+    for filename, pages in LETTERS.items():
+        write_pdf(LETTERS_OUT / filename, pages)
 
 
 if __name__ == "__main__":

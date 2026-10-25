@@ -3,14 +3,17 @@
 import asyncio
 import uuid
 from collections.abc import AsyncIterator
+from datetime import UTC, date, datetime
 from pathlib import Path
 from typing import Any
+from zoneinfo import ZoneInfo
 
 import httpx
 import pytest
 from temporalio.testing import WorkflowEnvironment
 
 from cairn.api.app import create_app
+from cairn.core.cases.letters import working_days_until
 from cairn.llm.client import build_client
 from cairn.settings import Settings
 from cairn.worker import build_worker
@@ -18,6 +21,7 @@ from tests.support import FIXTURES, make_settings
 
 SAMPLE = FIXTURES / "cases" / "aewv-sample"
 SCENARIO = FIXTURES / "llm" / "aewv_sample.json"
+LETTER = FIXTURES / "cases" / "letters" / "ppi-aewv.pdf"
 
 
 def _address(env: WorkflowEnvironment) -> str:
@@ -31,7 +35,7 @@ def settings(home: Path, cases_dir: Path, temporal_env: WorkflowEnvironment) -> 
         cases_dir,
         temporal_address=_address(temporal_env),
         llm_vendor="fake",
-        fake_scenario=SCENARIO,
+        fake_scenario=f"{SCENARIO}:{FIXTURES / 'llm' / 'letter.json'}",
         task_queue=f"api-{uuid.uuid4()}",
         max_upload_mb=1,
     )
@@ -118,6 +122,39 @@ async def test_start_check_validation(api: httpx.AsyncClient) -> None:
         json={"kind": "presubmission", "checklist_skill": "presubmission-nope"},
     )
     assert (bad_list.status_code, bad_list.json()["error"]["code"]) == (422, "spec_invalid")
+
+
+async def _upload_letter(api: httpx.AsyncClient, case_id: str) -> str:
+    files = [("files", (LETTER.name, LETTER.read_bytes()))]
+    response = await api.post(
+        f"/api/cases/{case_id}/documents", files=files, data={"source": "inz"}
+    )
+    assert response.status_code == 201
+    [letter] = response.json()
+    assert (letter["filename"], letter["source"]) == ("ppi-aewv.pdf", "inz")
+    return letter["doc_id"]
+
+
+async def test_start_letter_check_needs_an_inz_letter(api: httpx.AsyncClient) -> None:
+    case_id = await _case(api)
+    [tenancy] = (await _upload(api, case_id, "tenancy.pdf")).json()
+    assert tenancy["source"] == "client"
+    for body in (
+        {"kind": "letter"},
+        {"kind": "letter", "letter_doc_id": tenancy["doc_id"]},
+        {"kind": "letter", "letter_doc_id": "01NOPE"},
+    ):
+        refused = await api.post(f"/api/cases/{case_id}/checks", json=body)
+        assert (refused.status_code, refused.json()["error"]["code"]) == (422, "letter_invalid")
+    bad_source = await api.post(
+        f"/api/cases/{case_id}/documents",
+        files=[("files", (LETTER.name, LETTER.read_bytes()))],
+        data={"source": "agency"},
+    )
+    assert (bad_source.status_code, bad_source.json()["error"]["code"]) == (
+        422,
+        "invalid_request",
+    )
 
 
 async def _wait_done(api: httpx.AsyncClient, case_id: str, check_id: str) -> dict[str, Any]:
@@ -236,3 +273,27 @@ async def test_too_many_files_in_one_request(api: httpx.AsyncClient, settings: S
     response = await api.post(f"/api/cases/{case_id}/documents", files=files)
     assert (response.status_code, response.json()["error"]["code"]) == (413, "case_too_large")
     assert (await api.get(f"/api/cases/{case_id}")).json()["manifest"]["documents"] == []
+
+
+async def test_letter_check_view_has_the_deadline_and_every_finding_to_review(
+    api: httpx.AsyncClient, settings: Settings, temporal_env: WorkflowEnvironment
+) -> None:
+    case_id = await _case(api)
+    names = ["questionnaire.pdf", "employer-letter.pdf", "tenancy.pdf", "cover-letter.pdf"]
+    assert (await _upload(api, case_id, *names)).status_code == 201
+    letter_id = await _upload_letter(api, case_id)
+    async with build_worker(settings, temporal_env.client, build_client(settings, env={})):
+        started = await api.post(
+            f"/api/cases/{case_id}/checks", json={"kind": "letter", "letter_doc_id": letter_id}
+        )
+        assert started.status_code == 202
+        check_id = started.json()["check_id"]
+        view = await _wait_done(api, case_id, check_id)
+    assert view["status"] == "completed"
+    today = datetime.now(UTC).astimezone(ZoneInfo("Pacific/Auckland")).date()
+    assert view["deadline_working_days"] == working_days_until(date(2026, 11, 7), today)
+    assert view["result"]["letter"]["deadline"]["due"] == "2026-11-07"
+    assert view["blockers"] == ["d1", "q1", "q2", "q3", "u1"]
+    [brief] = (await api.get(f"/api/cases/{case_id}")).json()["checks"]
+    assert (brief["kind"], brief["letter_doc_id"]) == ("letter", letter_id)
+    assert (brief["counts"]["concerns"], brief["counts"]["not_supported"]) == (3, 3)

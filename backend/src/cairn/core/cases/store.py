@@ -18,9 +18,11 @@ from filelock import FileLock
 from cairn.core.atomic import append_line_durable, write_bytes_atomic, write_text_atomic
 from cairn.core.cases.models import (
     AuditEntry,
+    CheckKind,
     CheckResult,
     CheckStart,
     DataClass,
+    DocSource,
     DocStatus,
     Document,
     Manifest,
@@ -103,6 +105,7 @@ def add_document(
     data: bytes,
     now: datetime,
     limits: CaseLimits,
+    source: DocSource = "client",
 ) -> Document:
     """Store an upload byte-for-byte as `originals/<doc_id>.<ext>` and list it as pending.
 
@@ -129,6 +132,7 @@ def add_document(
             bytes=len(data),
             sha256=sha256,
             uploaded=now,
+            source=source,
         )
         write_bytes_atomic(root / "originals" / document.stored_name, data)
         manifest.documents.append(document)
@@ -231,6 +235,17 @@ def list_checks(cases_dir: Path, case_id: str) -> list[tuple[CheckStart, CheckRe
         )
         checks.append((start, result))
     return sorted(checks, key=lambda c: c[0].started, reverse=True)
+
+
+def latest_completed(cases_dir: Path, case_id: str, kind: CheckKind) -> CheckResult | None:
+    """The newest completed result of this kind, by finish time; start records not needed."""
+    root = case_dir(cases_dir, case_id) / "checks"
+    if not root.is_dir():
+        return None
+    paths = [p for p in root.glob("*.json") if not p.name.endswith(".start.json")]
+    results = [CheckResult.model_validate_json(p.read_text(encoding="utf-8")) for p in paths]
+    done = [r for r in results if r.kind == kind and r.status == "completed"]
+    return max(done, key=lambda r: r.finished, default=None)
 
 
 def signed_off(audit: list[AuditEntry], check_id: str) -> AuditEntry | None:

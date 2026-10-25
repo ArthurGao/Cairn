@@ -6,7 +6,7 @@ tests/fixtures/llm/aewv_sample.json, and replay of every produced history for de
 
 import json
 import uuid
-from datetime import UTC, datetime
+from datetime import UTC, date, datetime
 from pathlib import Path
 from typing import Any
 
@@ -26,12 +26,14 @@ from tests.support import FIXTURES, make_settings
 
 SAMPLE = FIXTURES / "cases" / "aewv-sample"
 SCENARIO = FIXTURES / "llm" / "aewv_sample.json"
+LETTER_SCENARIO = FIXTURES / "llm" / "letter.json"
+LETTER = FIXTURES / "cases" / "letters" / "ppi-aewv.pdf"
 EXPECTED: dict[str, Any] = json.loads((SAMPLE / "expected.json").read_text())
 NOW = datetime(2026, 10, 24, 3, 0, tzinfo=UTC)
 LIMITS = store.CaseLimits(max_documents=100, max_file_bytes=20 * 1024 * 1024)
 
 
-def _settings(home: Path, cases_dir: Path, scenario: Path = SCENARIO) -> Settings:
+def _settings(home: Path, cases_dir: Path, scenario: Path | str = SCENARIO) -> Settings:
     return make_settings(
         home,
         cases_dir,
@@ -255,3 +257,126 @@ async def test_client_data_is_refused_by_the_gate(
     result: CheckResult = store.read_result(cases_dir, "C1", "K7")
     assert (result.status, result.conflicts, result.items) == ("failed", [], [])
     assert store.load_manifest(cases_dir, "C1").documents[0].status == "pending"  # nothing read
+
+
+def _upload_letter(cases_dir: Path, case_id: str = "C1") -> None:
+    data = LETTER.read_bytes()
+    store.add_document(cases_dir, case_id, "ppi-aewv", LETTER.name, data, NOW, LIMITS, source="inz")
+
+
+async def test_letter_check_maps_every_concern_to_the_evidence(
+    env: WorkflowEnvironment, home: Path, cases_dir: Path
+) -> None:
+    _upload_sample(cases_dir)
+    _upload_letter(cases_dir)
+    settings = _settings(home, cases_dir, f"{SCENARIO}:{LETTER_SCENARIO}")
+    # The consistency check never reads the INZ letter: the sample's facts and coverage stand.
+    await _run(env, settings, CheckInput(check_id="K1", case_id="C1", kind="consistency"))
+    consistency = store.read_result(cases_dir, "C1", "K1")
+    assert consistency.coverage.model_dump() == EXPECTED["coverage"]
+    assert len(consistency.facts) == 14
+    letter_doc = store.load_manifest(cases_dir, "C1").document("ppi-aewv")
+    assert letter_doc is not None
+    assert letter_doc.status == "pending"  # not even ingested
+
+    check = CheckInput(check_id="L1", case_id="C1", kind="letter", letter_doc_id="ppi-aewv")
+    summary, history = await _run(env, settings, check)
+    assert (summary.status, summary.concerns, summary.not_supported, summary.gaps) == (
+        "completed",
+        3,
+        3,
+        1,
+    )
+    result = store.read_result(cases_dir, "C1", "L1")
+    letter = result.letter
+    assert letter is not None
+    assert (letter.related_check_id, letter.deadline.status, letter.deadline.due) == (
+        "K1",
+        "verified",
+        date(2026, 11, 7),
+    )
+    assert [(c.finding_id, c.status, c.downgraded, c.conflict_ids) for c in letter.concerns] == [
+        ("q1", "partial", None, ["c2"]),
+        ("q2", "no_evidence", None, []),
+        ("q3", "partial", None, ["c1"]),
+    ]
+    assert [len(c.citations) for c in letter.concerns] == [2, 1, 1]
+    assert [(u.finding_id, u.passage_id, u.text) for u in letter.unaccounted] == [
+        ("u1", "P15", "A. Officer, Immigration Officer")
+    ]
+    assert letter.client_email.splitlines()[4:7] == [
+        "1. Payslips or an employment agreement showing your first day at Example Freight Ltd "
+        "(about: The start date with Example Freight Ltd differs between the questionnaire and "
+        "the employer's letter)",
+        "2. Your police certificate (about: A police certificate is listed but INZ has not "
+        "received one)",
+        "3. A letter, bill or bank statement addressed to you at 12 Example Street from January "
+        "to April 2021 (about: When the applicant began living at 12 Example Street)",
+    ]
+    assert f"Related conflict c2: {consistency.conflicts[1].summary}" in letter.reply_outline
+    assert '   - questionnaire.pdf, page 2: "Start date: 03/2022"' in letter.reply_outline
+    assert [g.doc_id for g in result.gaps] == ["unreadable-photo"]
+    # The letter is not evidence: it is not in the evidence pages, so a quote from it is dropped.
+    assert [(d.reason, d.detail) for d in result.dropped] == [
+        ("citation_invalid", "q2: {{doc:ppi-aewv.pdf}} p1 'none has been received'")
+    ]
+    assert result.wording_replacements == 0
+    assert {(c.role, c.prompt_version) for c in result.calls} == {
+        ("case.read_letter", "1"),
+        ("case.match_evidence", "1"),
+    }
+    assert result.finding_ids() == ["d1", "q1", "q2", "q3", "u1", "g1"]
+    await _replay(history)
+
+
+async def test_letter_check_without_consistency_and_with_a_failed_match(
+    env: WorkflowEnvironment, home: Path, cases_dir: Path, tmp_path: Path
+) -> None:
+    entries = json.loads(LETTER_SCENARIO.read_text())
+    entries[1]["reply"] = {"error": "overloaded", "retryable": False}
+    scenario = tmp_path / "letter.json"
+    scenario.write_text(json.dumps(entries))
+    _upload_sample(cases_dir)
+    _upload_letter(cases_dir)
+    settings = _settings(home, cases_dir, f"{SCENARIO}:{scenario}")
+    check = CheckInput(
+        check_id="L2", case_id="C1", kind="letter", letter_doc_id="ppi-aewv", item_batch_size=2
+    )
+    summary, history = await _run(env, settings, check)
+    assert summary.status == "completed"
+    letter = store.read_result(cases_dir, "C1", "L2").letter
+    assert letter is not None
+    assert letter.related_check_id is None
+    assert [(c.finding_id, c.status, c.downgraded) for c in letter.concerns] == [
+        ("q1", "unable", "call_failed"),
+        ("q2", "unable", "call_failed"),
+        ("q3", "unable", "call_failed"),
+    ]
+    assert letter.client_email == ""
+    await _replay(history)
+
+
+async def test_a_letter_check_needs_an_inz_letter(
+    env: WorkflowEnvironment, home: Path, cases_dir: Path
+) -> None:
+    _upload_sample(cases_dir)
+    settings = _settings(home, cases_dir)
+    check = CheckInput(check_id="L3", case_id="C1", kind="letter", letter_doc_id="tenancy")
+    summary, _ = await _run(env, settings, check)
+    assert (summary.status, summary.error) == (
+        "failed",
+        "tenancy is not an INZ letter in this case; upload it as an INZ letter first",
+    )
+    assert store.load_manifest(cases_dir, "C1").documents[0].status == "pending"  # nothing read
+
+    # A letter that cannot be read in full fails the check: no partial list of concerns.
+    scan = (SAMPLE / "unreadable-photo.jpg").read_bytes()
+    store.add_document(
+        cases_dir, "C1", "inz-scan", "unreadable-photo.jpg", scan, NOW, LIMITS, source="inz"
+    )
+    check = CheckInput(check_id="L4", case_id="C1", kind="letter", letter_doc_id="inz-scan")
+    summary, _ = await _run(env, settings, check)
+    assert (summary.status, summary.error) == (
+        "failed",
+        "unreadable-photo.jpg could not be read in full; check the original",
+    )

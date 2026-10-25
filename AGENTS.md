@@ -21,8 +21,9 @@ a harness home is readable and usable by other tools unchanged (**cross-tool reu
 v1 implements three features end to end — everything else is a seam, not a feature:
 
 - **Feature C — Case checks** (`CaseCheckWorkflow`, the pilot's reason to exist): a **consistency
-  check** (facts that conflict across a case's documents, each with both sources) and a
-  **pre-submission check** (every checklist item checked / pending / unable, with sources).
+  check** (facts that conflict across a case's documents, each with both sources), a
+  **pre-submission check** (every checklist item checked / pending / unable, with sources) and an
+  **INZ letter reply** (a verified deadline, every concern in the letter mapped to the evidence).
   Code guarantees every document and item is covered and verifies every quote; the adviser
   reviews and signs off. Synthetic data only in v1 (data-class gate).
 - **Feature A — Agent run with state write-back** (`AgentRunWorkflow`): progressive disclosure while

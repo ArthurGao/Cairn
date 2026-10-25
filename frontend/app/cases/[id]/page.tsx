@@ -12,7 +12,7 @@ import { Empty, ErrorState, Loading } from "@/components/States";
 import { Upload } from "@/components/Upload";
 import { api } from "@/lib/api/client";
 import { errorMessage, unwrap } from "@/lib/api/fetch";
-import { type CheckKind, getCase, keys } from "@/lib/api/queries";
+import { type CheckKind, type DocSource, getCase, keys } from "@/lib/api/queries";
 import { checkKindLabel, formatWhen, plural } from "@/lib/format";
 import { useRouteParams } from "@/lib/params";
 
@@ -24,6 +24,7 @@ export default function CasePage() {
   const router = useRouter();
   const queryClient = useQueryClient();
   const [checklist, setChecklist] = useState("");
+  const [letter, setLetter] = useState("");
 
   const detail = useQuery({ queryKey: keys.case(id), queryFn: () => getCase(id) });
   const checklists = useQuery({
@@ -31,14 +32,15 @@ export default function CasePage() {
     queryFn: async () => unwrap(await api.GET("/api/checklists")),
   });
   const upload = useMutation({
-    mutationFn: async (files: File[]) =>
+    mutationFn: async ({ files, source }: { files: File[]; source: DocSource }) =>
       unwrap(
         await api.POST("/api/cases/{case_id}/documents", {
           params: { path: { case_id: id } },
-          body: { files: files as unknown as string[] },
+          body: { files: files as unknown as string[], source },
           bodySerializer: () => {
             const form = new FormData();
             for (const file of files) form.append("files", file);
+            form.append("source", source);
             return form;
           },
         }),
@@ -50,7 +52,7 @@ export default function CasePage() {
       ]),
   });
   const start = useMutation({
-    mutationFn: async (body: { kind: CheckKind; checklist_skill?: string }) =>
+    mutationFn: async (body: { kind: CheckKind; checklist_skill?: string; letter_doc_id?: string }) =>
       unwrap(await api.POST("/api/cases/{case_id}/checks", { params: { path: { case_id: id } }, body })),
     onSuccess: ({ check_id }) => router.push(`/cases/${id}/checks/${check_id}`),
   });
@@ -60,6 +62,9 @@ export default function CasePage() {
   const { manifest, checks } = detail.data;
   const valid = (checklists.data ?? []).filter((c) => !c.error);
   const chosen = checklist || valid[0]?.skill || "";
+  const letters = manifest.documents.filter((d) => d.source === "inz");
+  const evidence = manifest.documents.filter((d) => d.source === "client");
+  const chosenLetter = letter || letters[0]?.doc_id || "";
 
   return (
     <div className="grid grid-cols-12 gap-x-6 gap-y-10">
@@ -86,6 +91,11 @@ export default function CasePage() {
                 <tr key={doc.doc_id} data-testid="document-row" className="border-b border-rule align-top">
                   <td className="py-2">
                     {doc.filename}
+                    {doc.source === "inz" && (
+                      <span className="ml-2 border border-ink px-1.5 py-0.5 text-[11px] uppercase tracking-wide">
+                        INZ letter
+                      </span>
+                    )}
                     <div className="font-mono text-xs text-muted">{doc.media_type}</div>
                   </td>
                   <td className={`py-2 ${doc.status === "failed" ? "text-bad" : ""}`}>
@@ -110,8 +120,14 @@ export default function CasePage() {
             </tbody>
           </table>
         )}
-        <div className="mt-4">
-          <Upload busy={upload.isPending} onFiles={(files) => upload.mutate(files)} />
+        <div className="mt-4 grid gap-3">
+          <Upload busy={upload.isPending} onFiles={(files) => upload.mutate({ files, source: "client" })} />
+          <Upload
+            busy={upload.isPending}
+            onFiles={(files) => upload.mutate({ files, source: "inz" })}
+            what="An INZ letter (potentially prejudicial information or a request for information). It is read only when you prepare a reply, never as evidence."
+            testId="letter-input"
+          />
           {upload.isError && (
             <p role="alert" className="mt-2 text-sm text-bad">
               {errorMessage(upload.error)}
@@ -130,7 +146,7 @@ export default function CasePage() {
           <h2 className="text-sm font-semibold uppercase tracking-wide">Run a check</h2>
           <button
             type="button"
-            disabled={start.isPending || manifest.documents.length === 0}
+            disabled={start.isPending || evidence.length === 0}
             onClick={() => start.mutate({ kind: "consistency" })}
             className="justify-self-start bg-accent px-3 py-1.5 text-sm text-paper disabled:opacity-40"
           >
@@ -152,12 +168,40 @@ export default function CasePage() {
           </label>
           <button
             type="button"
-            disabled={start.isPending || !chosen || manifest.documents.length === 0}
+            disabled={start.isPending || !chosen || evidence.length === 0}
             onClick={() => start.mutate({ kind: "presubmission", checklist_skill: chosen })}
             className="justify-self-start border border-accent px-3 py-1.5 text-sm text-accent disabled:opacity-40"
           >
             Run pre-submission check
           </button>
+          {letters.length === 0 ? (
+            <p className="text-sm text-muted">Upload an INZ letter to prepare a reply to it.</p>
+          ) : (
+            <>
+              <label className="grid gap-1 text-sm">
+                <span>Letter to reply to</span>
+                <select
+                  value={chosenLetter}
+                  onChange={(event) => setLetter(event.target.value)}
+                  className="border border-rule px-2 py-1.5"
+                >
+                  {letters.map((d) => (
+                    <option key={d.doc_id} value={d.doc_id}>
+                      {d.filename}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <button
+                type="button"
+                disabled={start.isPending || !chosenLetter}
+                onClick={() => start.mutate({ kind: "letter", letter_doc_id: chosenLetter })}
+                className="justify-self-start border border-accent px-3 py-1.5 text-sm text-accent disabled:opacity-40"
+              >
+                Prepare reply
+              </button>
+            </>
+          )}
           {checklists.isError && (
             <p role="alert" className="text-sm text-bad">
               Could not load checklists: {errorMessage(checklists.error)}

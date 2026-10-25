@@ -15,6 +15,8 @@ class Role(StrEnum):
     CASE_EXTRACT_FACTS = "case.extract_facts"
     CASE_COMPARE_FACTS = "case.compare_facts"
     CASE_CHECK_ITEM = "case.check_item"
+    CASE_READ_LETTER = "case.read_letter"
+    CASE_MATCH_EVIDENCE = "case.match_evidence"
     DOCUMENT_TRANSCRIBE = "document.transcribe"
     AGENT_MAIN = "agent.main"
     MEMORY_EXTRACT = "memory.extract"
@@ -27,6 +29,8 @@ NEEDS: dict[Role, frozenset[Capability]] = {
     Role.CASE_EXTRACT_FACTS: frozenset({"structured-output"}),
     Role.CASE_COMPARE_FACTS: frozenset({"structured-output"}),
     Role.CASE_CHECK_ITEM: frozenset({"structured-output"}),
+    Role.CASE_READ_LETTER: frozenset({"structured-output"}),
+    Role.CASE_MATCH_EVIDENCE: frozenset({"structured-output"}),
     Role.DOCUMENT_TRANSCRIBE: frozenset({"structured-output", "vision"}),
     Role.AGENT_MAIN: frozenset({"tool-use"}),
     Role.MEMORY_EXTRACT: frozenset({"structured-output"}),
@@ -37,6 +41,7 @@ NEEDS: dict[Role, frozenset[Capability]] = {
 CHECK_ROLES: dict[str, tuple[Role, ...]] = {
     "consistency": (Role.DOCUMENT_TRANSCRIBE, Role.CASE_EXTRACT_FACTS, Role.CASE_COMPARE_FACTS),
     "presubmission": (Role.DOCUMENT_TRANSCRIBE, Role.CASE_CHECK_ITEM),
+    "letter": (Role.DOCUMENT_TRANSCRIBE, Role.CASE_READ_LETTER, Role.CASE_MATCH_EVIDENCE),
 }
 
 # Vendors that may never receive client data in v1, whatever the allow-list says (D-15);

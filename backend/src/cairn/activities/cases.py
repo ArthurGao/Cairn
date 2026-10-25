@@ -19,22 +19,34 @@ from temporalio.exceptions import ApplicationError
 
 from cairn.activities.common import call_llm, fatal, parse_reply, permanent
 from cairn.core.cases import store
-from cairn.core.cases.coverage import build_coverage, build_gaps, is_clean
+from cairn.core.cases.coverage import build_coverage, build_gaps, check_counts, in_scope
 from cairn.core.cases.facts import (
     accept_model_conflicts,
     merge_conflicts,
     rule_baseline,
     validate_facts,
 )
-from cairn.core.cases.items import apply_item_rules, status_counts
+from cairn.core.cases.items import apply_item_rules
+from cairn.core.cases.letters import (
+    apply_evidence_rules,
+    apply_letter_rules,
+    client_email,
+    reply_outline,
+    require_letter,
+    split_passages,
+)
 from cairn.core.cases.models import (
     CallRecord,
     ChecklistRef,
     CheckResult,
     Document,
     Dropped,
+    EvidenceReply,
     Fact,
     ItemReply,
+    LetterReading,
+    LetterResult,
+    Manifest,
     ModelConflict,
     Page,
     PageRef,
@@ -69,9 +81,13 @@ from cairn.workflows.case_models import (
     ItemsInput,
     ItemsOutcome,
     MarkFailedInput,
+    MatchInput,
+    MatchOutcome,
     MeasureInput,
     ProposeInput,
     ProposeOutcome,
+    ReadLetterInput,
+    ReadLetterOutcome,
     SpecItem,
 )
 
@@ -95,6 +111,10 @@ class _Conflicts(BaseModel):
 
 class _Items(BaseModel):
     results: list[ItemReply] = Field(default_factory=list[ItemReply])
+
+
+class _Evidence(BaseModel):
+    results: list[EvidenceReply] = Field(default_factory=list[EvidenceReply])
 
 
 MAX_TOKENS = "max_tokens"  # ApplicationError type for a reply cut off at max_tokens
@@ -152,7 +172,7 @@ class CaseActivities:
     @activity.defn
     @permanent
     async def load_check_spec(self, check: CheckInput) -> CheckSpec:
-        manifest = store.load_manifest(self.cases, check.case_id)
+        manifest = in_scope(store.load_manifest(self.cases, check.case_id), check.letter_doc_id)
         if problem := data_class_problem(
             self.client.roles,
             manifest.data_class,
@@ -167,6 +187,9 @@ class CaseActivities:
         try:
             if check.kind == "consistency":
                 self._categories()
+            elif check.kind == "letter":
+                require_letter(manifest, check.letter_doc_id)
+                spec.related_check_id = self._related_check(check.case_id)
             else:
                 checklist = require_checklist(self.skills, check.checklist_skill)
                 spec.checklist_version = checklist.version
@@ -179,6 +202,17 @@ class CaseActivities:
         if not spec.doc_ids:
             raise fatal("the case has no documents", "case_empty")
         return spec
+
+    def _related_check(self, case_id: str) -> str | None:
+        """The newest completed consistency check, whose conflicts a letter check offers."""
+        result = store.latest_completed(self.cases, case_id, "consistency")
+        return result.check_id if result else None
+
+    def _conflicts(self, case_id: str, check_id: str | None) -> dict[str, str]:
+        if check_id is None:
+            return {}
+        result = store.read_result(self.cases, case_id, check_id)
+        return {c.finding_id: c.summary for c in result.conflicts}
 
     # --- ingest (§8.2) ----------------------------------------------------------------------
 
@@ -451,7 +485,8 @@ class CaseActivities:
     # --- pre-submission (§8.5) --------------------------------------------------------------
 
     def _case_pages(self, case_id: str) -> tuple[str, dict[tuple[str, int], str]]:
-        manifest = store.load_manifest(self.cases, case_id)
+        """Every readable page of the client's documents; INZ letters are not evidence."""
+        manifest = in_scope(store.load_manifest(self.cases, case_id))
         texts: dict[tuple[str, int], str] = {}
         blocks: list[str] = []
         for doc in manifest.documents:
@@ -500,13 +535,72 @@ class CaseActivities:
         result = await self._call(request, calls)
         return ItemsOutcome(replies=parse_reply(_Items, result).results, calls=calls)
 
+    # --- INZ letter (§8.8) ------------------------------------------------------------------
+
+    @activity.defn
+    @permanent
+    async def read_letter(self, job: ReadLetterInput) -> ReadLetterOutcome:
+        letter = store.load_manifest(self.cases, job.case_id).document(job.letter_doc_id)
+        if letter is None:
+            raise fatal(f"no document {job.letter_doc_id}", "document_not_found")
+        unreadable = [p.n for p in letter.pages if p.method == "unreadable"]
+        if letter.status != "ingested" or unreadable or not letter.pages:
+            # A partial reading could look complete, so there is none (§8.7).
+            raise fatal(
+                f"{letter.filename} could not be read in full; check the original",
+                "letter_unreadable",
+            )
+        pages = self._readable_pages(job.case_id, letter)
+        passages = split_passages(sorted(pages.items()))
+        listing = "\n".join(f"[{p.passage_id}] (page {p.page}) {p.text}" for p in passages)
+        version, template = load_prompt("case_read_letter")
+        request = LlmRequest(
+            role=Role.CASE_READ_LETTER,
+            system=template,
+            messages=[Message.user(f"Letter: {letter.filename}\n\n{listing}")],
+            output_schema=LetterReading.model_json_schema(),
+            prompt_version=version,
+        )
+        calls: list[CallRecord] = []
+        reading = parse_reply(LetterReading, await self._call(request, calls))
+        read = apply_letter_rules(reading, passages, pages)
+        return ReadLetterOutcome(**read.model_dump(), calls=calls)
+
+    @activity.defn
+    @permanent
+    async def match_evidence(self, job: MatchInput) -> MatchOutcome:
+        context, _ = self._case_pages(job.case_id)
+        conflicts = self._conflicts(job.case_id, job.related_check_id)
+        known = "\n".join(f"- {cid}: {summary}" for cid, summary in conflicts.items()) or "none"
+        listing = "\n".join(
+            f'- {c.finding_id}: {c.summary} (INZ, page {c.page}: "{c.quote}")' for c in job.concerns
+        )
+        version, template = load_prompt("case_match_evidence")
+        request = LlmRequest(
+            role=Role.CASE_MATCH_EVIDENCE,
+            system=template,
+            messages=[
+                Message.user(
+                    # The same pages go with every batch: a cacheable prefix.
+                    TextPart(text=f"Case pages:\n\n{context}", cache=True),
+                    f"Conflicts found earlier between the documents:\n{known}\n\n"
+                    f"INZ's concerns:\n{listing}",
+                )
+            ],
+            output_schema=_Evidence.model_json_schema(),
+            prompt_version=version,
+        )
+        calls: list[CallRecord] = []
+        result = await self._call(request, calls)
+        return MatchOutcome(replies=parse_reply(_Evidence, result).results, calls=calls)
+
     # --- result (§4.9) ----------------------------------------------------------------------
 
     @activity.defn
     @permanent
     async def write_result(self, job: FinishInput) -> CheckSummary:
         check = job.check
-        manifest = store.load_manifest(self.cases, check.case_id)
+        manifest = in_scope(store.load_manifest(self.cases, check.case_id), check.letter_doc_id)
         base: dict[str, Any] = {
             "check_id": check.check_id,
             "case_id": check.case_id,
@@ -522,21 +616,52 @@ class CaseActivities:
         else:
             result = self._completed(job, manifest, base)
         store.write_result(self.cases, result)
-        counts = status_counts(result.items)
-        return CheckSummary(
-            check_id=result.check_id,
-            status=result.status,
-            error=result.error,
-            conflicts=len(result.conflicts),
-            checked=counts["checked"],
-            pending=counts["pending"],
-            unable=counts["unable"],
-            gaps=len(result.gaps),
-            clean=is_clean(result),
+        return CheckSummary.model_validate(
+            {
+                "check_id": result.check_id,
+                "status": result.status,
+                "error": result.error,
+                **check_counts(result),
+            }
+        )
+
+    def _letter_result(
+        self, job: FinishInput, manifest: Manifest, base: dict[str, Any]
+    ) -> CheckResult:
+        check, read = job.check, job.letter
+        assert read is not None
+        assert check.letter_doc_id is not None
+        _, texts = self._case_pages(check.case_id)
+        conflicts = self._conflicts(check.case_id, job.related_check_id)
+        concerns, dropped, replaced = apply_evidence_rules(
+            read.concerns, job.evidence, texts, set(job.failed_concerns), conflicts.keys()
+        )
+        names = {d.doc_id: d.filename for d in manifest.documents}
+        letter = LetterResult(
+            doc_id=check.letter_doc_id,
+            related_check_id=job.related_check_id,
+            deadline=read.deadline,
+            concerns=concerns,
+            unaccounted=read.unaccounted,
+            client_email=client_email(concerns, read.deadline),
+            reply_outline=reply_outline(
+                names.get(check.letter_doc_id, check.letter_doc_id), concerns, names, conflicts
+            ),
+        )
+        return CheckResult(
+            **base,
+            status="completed",
+            coverage=build_coverage(manifest),
+            letter=letter,
+            gaps=build_gaps(manifest),
+            dropped=[*read.dropped, *dropped],
+            wording_replacements=read.replaced + replaced,
         )
 
     def _completed(self, job: FinishInput, manifest: Any, base: dict[str, Any]) -> CheckResult:
         check = job.check
+        if check.kind == "letter":
+            return self._letter_result(job, manifest, base)
         gaps = build_gaps(manifest, job.extraction_failures)
         if check.kind == "consistency":
             categories = self._categories()
@@ -579,5 +704,7 @@ class CaseActivities:
             self.propose_conflicts,
             self.measure_case,
             self.check_items,
+            self.read_letter,
+            self.match_evidence,
             self.write_result,
         ]

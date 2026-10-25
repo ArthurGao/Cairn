@@ -11,14 +11,17 @@ Decisions with their reasons are in [`decisions.md`](decisions.md) (D-NN).
 Licensed immigration advisers spend much of each week cross-checking documents and preparing
 applications — work that is slow, repetitive and exactly where a missed conflict turns into an
 INZ request for more information. Cairn is the harness for agents that do that groundwork and hand
-a draft to the adviser, who decides. The first two jobs (from the adviser-agent proposal, phase 1
-and 2):
+a draft to the adviser, who decides. The first three jobs (from the adviser-agent proposal):
 
 - **Case consistency check** — read every document in a case and list the facts that conflict
   (dates, addresses, employment, family, travel, prior applications), each with both sources,
   page and quote, and a neutral question to confirm.
 - **Pre-submission check** — check a case against the adviser's checklist for its visa type; every
   item comes back *checked*, *pending* or *unable to check*, with sources.
+- **INZ letter reply** — read a potentially prejudicial information letter or request for
+  information, check its reply deadline, list every concern INZ raises, and map each to the
+  evidence already in the case, with an email asking the client for what is missing and a reply
+  outline for the adviser to write from (§8.8).
 
 Underneath, Cairn keeps the agents' long-lived knowledge as **plain files** and shows a model only
 an **index** up front; detail is loaded on demand. After each run the harness **writes back** what
@@ -53,8 +56,8 @@ What makes it worth building rather than "a script that calls a model":
 **Non-goals (v1; leave seams, do not build)**
 
 - Immigration advice of any kind: eligibility, what to apply for, which document is right.
-- Spouse-visa evidence organisation, INZ letter replies, enquiry intake and the other agents in
-  the proposal. They reuse Feature C's document pipeline later.
+- Spouse-visa evidence organisation, enquiry intake and the other agents in the proposal. They
+  reuse Feature C's document pipeline later. (INZ letter replies are built: §8.8.)
 - Real client data. v1 runs on synthetic or anonymised documents only, enforced by the data-class
   gate (§10.4), until processing in Azure Australia is verified.
 - Multi-user, auth, multi-tenant homes. One harness home and one case store per deployment, local
@@ -288,8 +291,13 @@ writeback: { applied: 2, rejected: 1 }
       "media_type": "application/pdf",
       "bytes": 48211, "sha256": "...", "uploaded": "2026-10-24T03:01:10Z",
       "status": "pending|ingested|failed", "error": null,
-      "pages": [ { "n": 1, "method": "text|transcribed|unreadable" } ] } ] }
+      "pages": [ { "n": 1, "method": "text|transcribed|unreadable" } ],
+      "source": "client|inz" } ] }
 ```
+
+`source` (default `client`) is set at upload: `inz` marks a letter from INZ. A letter check reads
+only the letter it replies to; no other check ingests or reports an `inz` document, and no check
+uses one as evidence (§8.8).
 
 Written by `core.cases` under `.case.lock` with atomic replace. Ids are plain
 `[A-Za-z0-9_-]{1,64}` (they become path parts); adding a document is idempotent per `doc_id`
@@ -323,7 +331,7 @@ reason: null                 # set when method = unreadable
 ### 4.9 Check result — `checks/<check_id>.json`
 
 ```json
-{ "check_id": "01JB...", "case_id": "01JB...", "kind": "consistency|presubmission",
+{ "check_id": "01JB...", "case_id": "01JB...", "kind": "consistency|presubmission|letter",
   "checklist": { "skill": "presubmission-aewv", "version": "0.1-sample" },
   "started": "...", "finished": "...", "status": "completed|failed", "error": null,
   "coverage": { "documents": 6, "documents_failed": 0, "pages": 14, "pages_transcribed": 2,
@@ -344,7 +352,12 @@ reason: null                 # set when method = unreadable
   "calls": [ { "role": "...", "vendor": "...", "model": "...", "tokens_in": 0, "tokens_out": 0 } ] }
 ```
 
-`conflicts` is set for `consistency`, `items` for `presubmission`; `gaps` (one per failed
+`conflicts` is set for `consistency`, `items` for `presubmission`, `letter` for `letter`
+(§8.8: `{doc_id, related_check_id, deadline: {finding_id: "d1", status: verified|unverified|missing,
+due, quote, page}, concerns: [{finding_id: "q1", summary, passages, page, quote, status:
+supported|partial|no_evidence|unable, finding, citations, client_request, conflict_ids,
+downgraded}], unaccounted: [{finding_id: "u1", passage_id, page, text}], client_email,
+reply_outline}`); `gaps` (one per failed
 document, one per document with unreadable pages) is set for both, so what could not be checked is
 a finding the adviser settles like any other. Written once by the workflow's last activity (temp
 file + rename); never edited — adviser review lives in `_audit.jsonl`.
@@ -754,6 +767,52 @@ limits of §8.2; if the estimate exceeds `case_context_budget`, the model pass i
   whole check: the result is written with `status: failed`, the reason in `error` and no findings
   at all (never a partial list that could read as complete).
 
+### 8.8 INZ letter reply (`kind: letter`)
+
+A third check kind in `CaseCheckWorkflow` (D-21): ingest, citations, gaps, review, audit and
+sign-off are the same as §8.1–§8.7.
+
+1. **The letter.** Uploaded with `source: inz` (§4.7). `POST /checks {kind: letter,
+   letter_doc_id}` is refused with 422 `letter_invalid` unless that document is an INZ letter in
+   the case. Its scope is the client's documents plus that letter; every pending document in it
+   is ingested. A letter that is not ingested in full (failed,
+   unreadable page) fails the check with `letter_unreadable`: no partial list of concerns.
+2. **Passages.** Code splits the letter's pages into numbered passages `P1…`: one per line, a
+   wrapped sentence joined to its start (the line does not end a sentence and the next starts in
+   lower case or follows a line of 70+ characters), a list item (`1.`, `(a)`, `-`) always starting
+   a passage, a blank line always ending one, never across pages.
+3. **Read** (role `case.read_letter`, one call): `{deadline: {date, quote, page} | null,
+   concerns: [{summary, passages, quote, page}], context_passages}`. Code rules:
+   - a concern whose passages are unknown, or whose quote is not on its page, is dropped (to
+     `dropped`) and its passages count as not accounted for;
+   - every passage in no accepted concern and not in `context_passages` becomes an
+     `unaccounted` finding (`u1…`) with its text: a paragraph the model skipped is reviewed,
+     never lost;
+   - the deadline is `verified` only when the quote is on its page and a full date in the quote
+     (`7 November 2026`, `07/11/2026` day first, `2026-11-07`) equals `date`; otherwise
+     `unverified` (a period such as "within 10 working days" keeps no `due`); no deadline is
+     `missing`. It is always finding `d1`: the adviser confirms the date;
+   - the wording guard (§8.4) replaces a summary with "INZ raises a concern in P…".
+4. **Match** (role `case.match_evidence`, concerns in batches of `item_batch_size`): the case's
+   pages except INZ letters as a cached prefix (over `case_context_budget` fails the check with
+   `case_too_large_for_v1`), plus the conflicts (id, summary) of the latest completed consistency
+   check, if any (`related_check_id`). Reply per concern `{concern_id, status, finding,
+   citations, client_request?, conflict_ids}`. Code rules mirror §8.5: exactly one result per
+   concern (none → `unable`, `downgraded: missing`; failed batch → `unable`, `call_failed`);
+   citations verified, a quote from the letter is never evidence; `supported`/`partial` without
+   a valid citation → `no_evidence`, `downgraded: no_valid_citation`; unknown conflict ids
+   dropped; the wording guard replaces a finding with a neutral template and drops a client
+   request.
+5. **Drafts, by code.** `client_email` lists each concern's `client_request` (empty when none);
+   `reply_outline` has one heading per concern with INZ's quote, the evidence status, the
+   verified citations and related conflicts, and a placeholder for the adviser's response. Plain
+   English text, copied by the adviser; nothing is sent.
+6. **Review.** `d1`, every `q*`, every `u*` and every gap need review before sign-off. "Clean"
+   means a verified deadline, no unaccounted passage, no gap and every concern `supported`.
+7. **Working days.** The check view carries `deadline_working_days`: Monday-to-Friday days from
+   tomorrow to `due` in New Zealand time, negative once passed; public holidays are not counted
+   out and the UI says so. Reminders and escalation need notifications and adviser identity (§17).
+
 ## 9. Cross-tool reuse
 
 ### 9.1 By format
@@ -829,6 +888,8 @@ forces every role onto the fake vendor.
 | `case.extract_facts` | `gateway` / `anthropic/claude-sonnet-5.5` / `medium` | structured output | extraction: recall decides; Haiku-class models drop facts stated as bare conditions |
 | `case.compare_facts` | `gateway` / `anthropic/claude-sonnet-5.5` / `medium` | structured output | pairing facts across documents |
 | `case.check_item` | `gateway` / `anthropic/claude-sonnet-5.5` / `medium` | structured output | judging an item against cited pages |
+| `case.read_letter` | `gateway` / `anthropic/claude-sonnet-5.5` / `medium` | structured output | reading every point of an INZ letter (§8.8) |
+| `case.match_evidence` | `gateway` / `anthropic/claude-sonnet-5.5` / `medium` | structured output | matching each concern to cited pages (§8.8) |
 | `document.transcribe` | `gateway` / `anthropic/claude-sonnet-5.5` / `low` | structured output, vision | faithful transcription of scanned pages |
 | `agent.main` | `gateway` / `anthropic/claude-sonnet-5.5` / `medium` | tool use | tool use over a small context |
 | `memory.extract` | `gateway` / `anthropic/claude-sonnet-5.5` / `medium` | structured output | extraction: recall matters; small models drop items |
@@ -908,14 +969,14 @@ The gate is config, not code paths: the role layer is unchanged when `azure` is 
 | `POST /api/cases` `{label}` | create a case (manifest with `data_class`); returns `{case_id}` |
 | `GET /api/cases` | cases with document counts and latest check per kind |
 | `GET /api/cases/{case_id}` | manifest: documents with status and per-page method |
-| `POST /api/cases/{case_id}/documents` (multipart, one or more files) | store originals, add to manifest as `pending`; 415 `unsupported_type`, 413 `case_too_large` |
+| `POST /api/cases/{case_id}/documents` (multipart, one or more files, optional `source=client\|inz`) | store originals, add to manifest as `pending`; 415 `unsupported_type`, 413 `case_too_large` |
 | `GET /api/cases/{case_id}/documents/{doc_id}/original` | the uploaded file |
 | `GET /api/cases/{case_id}/documents/{doc_id}/pages/{n}` | page text + frontmatter (§4.8) |
 | `GET /api/cases/{case_id}/documents/{doc_id}/pages/{n}/render` | a server-side PNG of the page (≤ 25 MP; 422 `not_renderable` otherwise) |
 | `GET /api/checklists` | `presubmission-*` skills with visa, version, owner, item count |
-| `POST /api/cases/{case_id}/checks` `{kind, checklist_skill?}` | write `checks/<check_id>.start.json`, then start `CaseCheckWorkflow` (id `check-<check_id>`); returns `{check_id}` (202). A start record without a running workflow or result is shown as failed, never as running forever |
+| `POST /api/cases/{case_id}/checks` `{kind, checklist_skill?, letter_doc_id?}` (422 `letter_invalid` for a letter check without an INZ letter) | write `checks/<check_id>.start.json`, then start `CaseCheckWorkflow` (id `check-<check_id>`); returns `{check_id}` (202). A start record without a running workflow or result is shown as failed, never as running forever |
 | `GET /api/cases/{case_id}/checks` | checks for the case with status and counts |
-| `GET /api/cases/{case_id}/checks/{check_id}` | `CheckState` while running; the result (§4.9) + review state once written |
+| `GET /api/cases/{case_id}/checks/{check_id}` | `CheckState` while running; the result (§4.9) + review state once written; `deadline_working_days` for a letter check (§8.8) |
 | `POST /api/cases/{case_id}/checks/{check_id}/findings/{finding_id}/review` `{action, note?, adviser}` | append to audit log; 422 `note_required` for `dismissed` without a note |
 | `POST /api/cases/{case_id}/checks/{check_id}/signoff` `{adviser}` | append `signed_off`; 409 `signoff_blocked` listing the findings still open |
 | `POST /api/runs` `{task, max_steps?}` | start `AgentRunWorkflow`; returns `{run_id}` |
@@ -949,8 +1010,8 @@ Primary navigation is **Cases**; everything else sits under **Manage**.
 | --- | --- |
 | `/` | redirect to `/cases`; health badge in the header (incl. `data_class`, shown as a banner "Synthetic data only") |
 | `/cases` | case list: label, document count, latest consistency and pre-submission result counts, signed off or not; "New case" |
-| `/cases/[id]` | upload area (drag and drop, multiple files, type/size errors per file); documents with status and per-page method (text / transcribed by model / unreadable); "Run consistency check", "Run pre-submission check" (checklist picker); check history |
-| `/cases/[id]/checks/[checkId]` | while running: step and progress counts (polls 1 s). Done: coverage bar (documents, pages, transcribed, unreadable, facts dropped) above the findings. Consistency: one row per conflict — the two (or more) values side by side with document, page and quote, the question, origin (rule/model) badge. Pre-submission: items grouped by status (pending, unable, checked) with citations. Clicking a citation opens the page text (and render) beside the finding with the quote highlighted. Per-finding review actions, then sign-off |
+| `/cases/[id]` | upload area (drag and drop, multiple files, type/size errors per file); documents with status and per-page method (text / transcribed by model / unreadable); "Run consistency check", "Run pre-submission check" (checklist picker); a second upload area for INZ letters (tagged "INZ letter" in the list) and "Prepare reply" (letter picker); check history |
+| `/cases/[id]/checks/[checkId]` | while running: step and progress counts (polls 1 s). Done: coverage bar (documents, pages, transcribed, unreadable, facts dropped) above the findings. Consistency: one row per conflict — the two (or more) values side by side with document, page and quote, the question, origin (rule/model) badge. Pre-submission: items grouped by status (pending, unable, checked) with citations. INZ letter reply: the deadline (date, working days left, whether the quote was verified) to confirm, each concern with INZ's quote and its evidence status, citations, related conflicts and what to ask the client, passages in no concern, then the client email and reply outline with Copy buttons. Clicking a citation opens the page text (and render) beside the finding with the quote highlighted. Per-finding review actions, then sign-off |
 | `/manage/runs`, `/manage/runs/[id]` | agent runs: task box; timeline with context breakdown bar (L0 parts vs baseline), steps, answer, write-back result with diff + Undo |
 | `/manage/context` | the exact L0 prompt and its breakdown — the progressive-disclosure explainer; the task is never part of L0, it arrives as the first user message |
 | `/manage/memory` | memory list grouped by type, reads/last read, index budget meter; detail drawer with file, history, Undo |
@@ -1051,8 +1112,10 @@ The `azure` vendor and real client data are not a v1 milestone: they need the ve
   verification of where processing, logs, backups and abuse monitoring happen; client consent
   recorded per case; auth for advisers so sign-off is an authenticated identity.
 - Per-item retrieval for pre-submission checks on cases over `case_context_budget`.
-- Spouse-visa evidence organisation (hundreds of images, map-reduce over files, photo dates), INZ
-  letter replies, case briefs — reuse ingest and citations from Feature C.
+- Spouse-visa evidence organisation (hundreds of images, map-reduce over files, photo dates) and
+  case briefs — reuse ingest and citations from Feature C.
+- INZ letter deadlines: reminders and escalation to a manager (needs notifications and adviser
+  identity), and New Zealand public holidays in the working-day count.
 - Memory write-back from adviser review notes (e.g. recurring dismissals), through §6.3's
   validation.
 - More upload types (DOCX, HEIC, email `.eml`/`.msg`).

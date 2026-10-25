@@ -37,6 +37,7 @@ backend/
         citations.py                # quote verification against page text
         facts.py                    # normalisation, precision-aware compare, rule baseline
         items.py                    # pre-submission item rules (downgrades, coverage)
+        letters.py                  # INZ letter rules: passages, deadline, evidence, drafts (§8.8)
         wording.py                  # wording guard + template questions
     llm/
       roles.py                      # Role enum, config loading, startup validation
@@ -48,7 +49,7 @@ backend/
       vendors/gateway.py            # picks the adapter by model prefix; gateway base URL + key
       vendors/llmgw.py              # local LLM gateway (dev/demo only, loopback, D-19)
       vendors/fake.py
-      prompts/agent_main.md  memory_extract.md  memory_consolidate.md
+      prompts/*.md                  # one versioned template per model call (case_*, document_*, agent_*, memory_*)
     workflows/case_check.py  workflows/agent_run.py  workflows/memory_cleanup.py  (+ *_models.py)
     activities/cases.py  agent.py  cleanup.py  common.py   # common: error mapping, LLM call helpers
     schedule.py                     # cleanup schedule ensure/trigger (§7.1)
@@ -58,6 +59,7 @@ backend/
   tests/
     fixtures/home/                  # canonical test harness home (copy to tmp_path, never mutate)
     fixtures/cases/aewv-sample/     # synthetic case + expected.json (planted conflicts, item statuses)
+    fixtures/cases/letters/         # synthetic INZ letters (uploaded with source=inz; never evidence)
     fixtures/make_cases.py          # generates the synthetic documents; never a real person's
     fixtures/llm/*.json             # fake-vendor scenarios
     unit/  workflows/  api/  live/

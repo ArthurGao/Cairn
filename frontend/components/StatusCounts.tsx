@@ -11,7 +11,13 @@ export function StatusCounts({ check }: { check: Schemas["CheckBrief"] }) {
           { n: c.conflicts, label: "conflicts", tone: c.conflicts ? "text-bad" : "" },
           { n: c.gaps, label: "gaps", tone: c.gaps ? "text-warn" : "" },
         ]
-      : [
+      : check.kind === "letter"
+        ? [
+            { n: c.concerns, label: "concerns", tone: "" },
+            { n: c.not_supported, label: "not fully supported", tone: c.not_supported ? "text-bad" : "" },
+            { n: c.gaps, label: "gaps", tone: c.gaps ? "text-warn" : "" },
+          ]
+        : [
           { n: c.checked, label: "checked", tone: "text-good" },
           { n: c.pending, label: "pending", tone: c.pending ? "text-bad" : "" },
           { n: c.unable, label: "unable", tone: c.unable ? "text-warn" : "" },

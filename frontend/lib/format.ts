@@ -17,8 +17,28 @@ export function plural(n: number, one: string, many = `${one}s`): string {
   return `${n} ${n === 1 ? one : many}`;
 }
 
+const KIND_LABEL = {
+  consistency: "Consistency check",
+  presubmission: "Pre-submission check",
+  letter: "INZ letter reply",
+} as const satisfies Record<CheckKind, string>;
+
 export function checkKindLabel(kind: CheckKind): string {
-  return kind === "consistency" ? "Consistency check" : "Pre-submission check";
+  return KIND_LABEL[kind];
+}
+
+const DAY = new Intl.DateTimeFormat("en-NZ", { day: "numeric", month: "long", year: "numeric", timeZone: "UTC" });
+
+/** A calendar date (`2026-11-07`) as people write it: 7 November 2026. */
+export function formatDay(isoDate: string): string {
+  return DAY.format(new Date(`${isoDate}T00:00:00Z`));
+}
+
+/** Working days to a deadline, as the API counts them (Monday to Friday, from tomorrow). */
+export function workingDaysLabel(days: number): string {
+  if (days < 0) return `${plural(-days, "working day")} overdue`;
+  if (days === 0) return "no working days left";
+  return `${plural(days, "working day")} left`;
 }
 
 export const ACTION_LABEL = {

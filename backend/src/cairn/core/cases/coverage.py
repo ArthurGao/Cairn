@@ -2,7 +2,30 @@
 
 from collections.abc import Mapping
 
+from cairn.core.cases.items import status_counts
 from cairn.core.cases.models import CheckResult, Coverage, Gap, Manifest
+
+
+def in_scope(manifest: Manifest, letter_doc_id: str | None = None) -> Manifest:
+    """The documents a check covers: the client's evidence, plus the one INZ letter a letter
+    check replies to (§8.8). Other INZ letters are neither ingested nor reported."""
+    documents = [d for d in manifest.documents if d.source == "client" or d.doc_id == letter_doc_id]
+    return manifest.model_copy(update={"documents": documents})
+
+
+def check_counts(result: CheckResult) -> dict[str, int | bool]:
+    """The counts shown for a check, never one pass/fail (§12.2); one definition for the
+    workflow summary and the API."""
+    counts = status_counts(result.items)
+    concerns = result.letter.concerns if result.letter else []
+    return {
+        "conflicts": len(result.conflicts),
+        **counts,
+        "concerns": len(concerns),
+        "not_supported": sum(c.status != "supported" for c in concerns),
+        "gaps": len(result.gaps),
+        "clean": is_clean(result),
+    }
 
 
 def build_gaps(manifest: Manifest, check_failures: Mapping[str, str] | None = None) -> list[Gap]:
@@ -48,4 +71,12 @@ def is_clean(result: CheckResult) -> bool:
         return False
     if result.kind == "consistency":
         return not result.conflicts
+    if result.kind == "letter":
+        letter = result.letter
+        return (
+            letter is not None
+            and letter.deadline.status == "verified"
+            and not letter.unaccounted
+            and all(c.status == "supported" for c in letter.concerns)
+        )
     return all(item.status == "checked" for item in result.items)

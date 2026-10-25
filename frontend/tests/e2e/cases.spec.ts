@@ -1,6 +1,6 @@
 import { expect, test } from "@playwright/test";
 
-import { CASE_ID, apiError, base, brief, json, manifest } from "./fixtures";
+import { CASE_ID, apiError, base, brief, json, letterView, manifest, manifestWithLetter } from "./fixtures";
 
 test.beforeEach(async ({ page }) => base(page));
 
@@ -114,4 +114,43 @@ test("case page: missing case shows the API error", async ({ page }) => {
   await apiError(page, `**/api/cases/${CASE_ID}`, 404, "case_not_found", `case ${CASE_ID} does not exist`);
   await page.goto(`/cases/${CASE_ID}`);
   await expect(page.getByTestId("error")).toHaveText(`Could not load the case.case ${CASE_ID} does not exist`);
+});
+
+test("case page: an INZ letter is uploaded as such and a reply is prepared for it", async ({ page }) => {
+  let uploaded = false;
+  await page.route(`**/api/cases/${CASE_ID}`, (route) =>
+    route.fulfill({ json: { manifest: uploaded ? manifestWithLetter : manifest, checks: [] } }),
+  );
+  await page.route(`**/api/cases/${CASE_ID}/documents`, async (route) => {
+    const body = route.request().postDataBuffer()?.toString() ?? "";
+    expect(body).toContain('name="files"; filename="ppi-aewv.pdf"');
+    expect(body).toMatch(/name="source"\r\n\r\ninz\r\n/);
+    uploaded = true;
+    await route.fulfill({ status: 201, json: [manifestWithLetter.documents[3]] });
+  });
+  await page.route(`**/api/cases/${CASE_ID}/checks`, async (route) => {
+    expect(route.request().postDataJSON()).toEqual({ kind: "letter", letter_doc_id: "L1" });
+    await route.fulfill({ status: 202, json: { check_id: "01NEW" } });
+  });
+  await json(page, `**/api/cases/${CASE_ID}/checks/01NEW`, { ...letterView, check_id: "01NEW", status: "running", result: null });
+  await page.goto(`/cases/${CASE_ID}`);
+  await expect(page.getByText("Upload an INZ letter to prepare a reply to it.")).toBeVisible();
+  await page.getByTestId("letter-input").setInputFiles({ name: "ppi-aewv.pdf", mimeType: "application/pdf", buffer: Buffer.from("%PDF-1.4") });
+  await expect(page.getByTestId("document-row").nth(3)).toContainText("ppi-aewv.pdfINZ letter");
+  await expect(page.getByLabel("Letter to reply to")).toHaveValue("L1");
+  await page.getByRole("button", { name: "Prepare reply" }).click();
+  await expect(page).toHaveURL(`/cases/${CASE_ID}/checks/01NEW`);
+});
+
+test("case page: a letter reply is listed with its concern counts", async ({ page }) => {
+  const reply = {
+    ...brief,
+    kind: "letter" as const,
+    letter_doc_id: "L1",
+    counts: { ...brief.counts!, conflicts: 0, concerns: 3, not_supported: 2, gaps: 0 },
+  };
+  await json(page, `**/api/cases/${CASE_ID}`, { manifest: manifestWithLetter, checks: [reply] });
+  await page.goto(`/cases/${CASE_ID}`);
+  await expect(page.getByTestId("check-row")).toContainText("INZ letter reply");
+  await expect(page.getByTestId("status-counts")).toHaveText("3 concerns2 not fully supported0 gaps");
 });

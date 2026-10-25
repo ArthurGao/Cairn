@@ -26,4 +26,5 @@ export async function getCase(caseId: string): Promise<Schemas["CaseDetail"]> {
 }
 
 export type CheckKind = Schemas["StartCheck"]["kind"];
+export type DocSource = Schemas["Document"]["source"];
 export type ReviewAction = Schemas["ReviewIn"]["action"];

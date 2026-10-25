@@ -1,8 +1,8 @@
 """Pre-submission rules: every checklist item gets exactly one honest status (§8.5)."""
 
-from collections.abc import Collection, Iterable, Mapping
+from collections.abc import Collection, Iterable
 
-from cairn.core.cases.citations import quote_on_page
+from cairn.core.cases.citations import PageTexts, first_replies, valid_citations
 from cairn.core.cases.models import (
     Citation,
     Downgrade,
@@ -12,26 +12,6 @@ from cairn.core.cases.models import (
     ItemStatus,
 )
 from cairn.core.cases.spec import Checklist
-
-PageTexts = Mapping[tuple[str, int], str]
-
-
-def _valid_citations(
-    item_id: str, citations: Iterable[Citation], pages: PageTexts, dropped: list[Dropped]
-) -> list[Citation]:
-    valid: list[Citation] = []
-    for citation in citations:
-        text = pages.get((citation.doc_id, citation.page))
-        if text is not None and quote_on_page(citation.quote, text):
-            valid.append(citation)
-        else:
-            dropped.append(
-                Dropped(
-                    reason="citation_invalid",
-                    detail=f"{item_id}: {citation.doc_id} p{citation.page} {citation.quote!r}",
-                )
-            )
-    return valid
 
 
 def apply_item_rules(
@@ -46,14 +26,7 @@ def apply_item_rules(
     """
     known = {item.id for item in checklist.items}
     dropped: list[Dropped] = []
-    first_reply: dict[str, ItemReply] = {}
-    for reply in replies:
-        if reply.item_id not in known:
-            dropped.append(Dropped(reason="unknown_item", detail=reply.item_id))
-        elif reply.item_id in first_reply:
-            dropped.append(Dropped(reason="duplicate_item", detail=reply.item_id))
-        else:
-            first_reply[reply.item_id] = reply
+    first_reply = first_replies(replies, known, lambda r: r.item_id, "item", dropped)
 
     results: list[ItemResult] = []
     for n, item in enumerate(checklist.items, start=1):
@@ -67,7 +40,7 @@ def apply_item_rules(
         elif reply is None:
             status, finding, downgraded = "unable", "not evaluated", "missing"
         else:
-            citations = _valid_citations(item.id, reply.citations, pages, dropped)
+            citations = valid_citations(item.id, reply.citations, pages, dropped)
             status, finding = reply.status, reply.finding
             if status == "checked" and not citations:
                 status, downgraded = "pending", "no_valid_citation"

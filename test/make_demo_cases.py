@@ -6,6 +6,8 @@ Writes one folder per case next to this script; upload a folder's files into a n
 
 - `demo-conflicts/`: planted problems a check should report (listed in `PLANTED`).
 - `demo-clean/`: the same kind of case with every fact agreeing and every item present.
+- `demo-letters/`: a synthetic INZ letter about `demo-conflicts`; upload it with "INZ letter"
+  (not as evidence) and choose "Prepare reply".
 """
 
 from pathlib import Path
@@ -124,6 +126,36 @@ PASSPORTS: dict[str, list[str]] = {
     ],
 }
 
+# A PPI letter about demo-conflicts: two of its planted conflicts, the police certificate, a
+# medical certificate, and one sentence (the request to explain the gap) that the reading must
+# not lose. Upload it as an INZ letter.
+LETTERS: dict[str, list[list[str]]] = {
+    "ppi-demo-conflicts.pdf": [
+        [
+            "Immigration New Zealand (sample letter - not a real document)",
+            "Our reference: DEMO-0042",
+            "26 October 2026",
+            "Dear Jordan Example",
+            "Re: Accredited Employer Work Visa application",
+            "We have assessed your application and have concerns we want you to comment on.",
+            "1. Your application form gives your date of birth as 3 February 1988, but your",
+            "passport gives 3 February 1989.",
+            "2. Your application form states you started with Demo Orchards Ltd on",
+            "1 September 2023. Your job offer gives a start date of 1 November 2023.",
+            "3. Your cover letter refers to a police certificate from Australia. We have not",
+            "received it.",
+        ],
+        [
+            "4. You have not provided a medical certificate.",
+            "Please also explain where you lived between June 2021 and March 2022.",
+            "You must respond by 6 November 2026. If you do not, we will decide your application",
+            "on the information we hold.",
+            "Yours sincerely",
+            "B. Officer, Immigration Officer",
+        ],
+    ]
+}
+
 # What a check of demo-conflicts should find (for reading the results, not asserted by code).
 PLANTED = """Planted in demo-conflicts (all fictional):
 - identity.date_of_birth: form 3 Feb 1988 vs passport 03 FEB 1989
@@ -134,6 +166,11 @@ PLANTED = """Planted in demo-conflicts (all fictional):
 - pre-submission: job offer not signed by the employee; cover letter cites Appendix 5 police
   certificate, which is not in the case; medical certificate "to follow" is missing
 demo-clean should have no conflicts; police certificate and signatures are present.
+
+Planted in demo-letters/ppi-demo-conflicts.pdf (prepare a reply on demo-conflicts):
+- deadline 6 November 2026, verifiable from its quote
+- concerns: date of birth, employment start, police certificate, medical certificate, and the
+  request to explain June 2021 - March 2022 (5 points; none fully supported by the case)
 """
 
 
@@ -164,6 +201,10 @@ def main() -> None:
         for filename, pages in docs.items():
             write_pdf(out / filename, pages)
         write_passport(out / "passport-scan.png", PASSPORTS[case])
+    letters = HERE / "demo-letters"
+    letters.mkdir(exist_ok=True)
+    for filename, pages in LETTERS.items():
+        write_pdf(letters / filename, pages)
     (HERE / "PLANTED.txt").write_text(PLANTED, encoding="utf-8")
 
 

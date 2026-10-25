@@ -1,6 +1,7 @@
 "use client";
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import Link from "next/link";
 import { type ReactNode, useEffect, useMemo, useState } from "react";
 
 import { type Citation, CitationViewer } from "@/components/CitationViewer";
@@ -15,7 +16,7 @@ import { api, type Schemas } from "@/lib/api/client";
 import { errorMessage, unwrap } from "@/lib/api/fetch";
 import { getCase, keys, type ReviewAction } from "@/lib/api/queries";
 import { loadAdviser, saveAdviser } from "@/lib/adviser";
-import { ACTION_LABEL, checkKindLabel, formatWhen, plural } from "@/lib/format";
+import { ACTION_LABEL, checkKindLabel, formatDay, formatWhen, plural, workingDaysLabel } from "@/lib/format";
 import { useRouteParams } from "@/lib/params";
 
 type Pending = { findingId: string; action: ReviewAction } | null;
@@ -27,6 +28,21 @@ const DOWNGRADE = {
   missing: "not evaluated by the model",
   no_valid_citation: "marked checked without a source that could be verified",
   call_failed: "the model call failed",
+} as const;
+const EVIDENCE = {
+  supported: { label: "supported by the case", tone: "text-good" },
+  partial: { label: "partly supported", tone: "text-warn" },
+  no_evidence: { label: "no evidence in the case", tone: "text-bad" },
+  unable: { label: "could not be judged", tone: "text-warn" },
+} as const;
+const CONCERN_DOWNGRADE = {
+  ...DOWNGRADE,
+  no_valid_citation: "marked as supported without a source that could be verified",
+} as const;
+const DEADLINE_STATUS = {
+  verified: "Read from the letter; the quoted words give this date.",
+  unverified: "The quoted words do not give this date. Read the letter.",
+  missing: "No reply deadline was found in the letter. Read the letter.",
 } as const;
 
 export default function CheckPage() {
@@ -130,6 +146,9 @@ export default function CheckPage() {
                 {result.checklist.skill} v{result.checklist.version}
               </span>
             ) : null}
+            {result?.letter ? (
+              <span className="ml-2 font-mono text-base font-normal text-muted">{name(result.letter.doc_id)}</span>
+            ) : null}
           </>
         }
       >
@@ -179,6 +198,15 @@ export default function CheckPage() {
               <Conflicts result={result} facts={facts} source={source} reviewOf={reviewOf} />
             )}
             {result.kind === "presubmission" && <Items result={result} source={source} reviewOf={reviewOf} />}
+            {result.letter && (
+              <Letter
+                letter={result.letter}
+                workingDays={view.deadline_working_days}
+                relatedHref={(checkId) => `/cases/${id}/checks/${checkId}`}
+                source={source}
+                reviewOf={reviewOf}
+              />
+            )}
             <Gaps result={result} name={name} source={source} reviewOf={reviewOf} />
           </section>
 
@@ -245,6 +273,19 @@ function SectionTitle({ label, count, tone = "" }: { label: string; count: numbe
     <h2 className={`mb-3 text-sm font-semibold uppercase tracking-wide ${tone}`}>
       {label} <span className="num font-normal text-muted">{count}</span>
     </h2>
+  );
+}
+
+function Citations({ citations, source }: { citations: Schemas["Citation"][]; source: Source }) {
+  if (citations.length === 0) return null;
+  return (
+    <ul className="mt-1 grid gap-0.5 text-xs">
+      {citations.map((c, n) => (
+        <li key={n}>
+          {source(c.doc_id, c.page, c.quote)} <span className="text-muted">“{c.quote}”</span>
+        </li>
+      ))}
+    </ul>
   );
 }
 
@@ -328,15 +369,7 @@ function Items({ result, source, reviewOf }: { result: Schemas["CheckResult"]; s
                         Set to {item.status} by code: {DOWNGRADE[item.downgraded]}.
                       </p>
                     )}
-                    {item.citations.length > 0 && (
-                      <ul className="mt-1 grid gap-0.5 text-xs">
-                        {item.citations.map((c, n) => (
-                          <li key={n}>
-                            {source(c.doc_id, c.page, c.quote)} <span className="text-muted">“{c.quote}”</span>
-                          </li>
-                        ))}
-                      </ul>
-                    )}
+                    <Citations citations={item.citations} source={source} />
                     {item.status !== "checked" && <div className="mt-2">{reviewOf(item.finding_id)}</div>}
                   </li>
                 ))}
@@ -385,6 +418,162 @@ function Gaps({
           ))}
         </ol>
       )}
+    </div>
+  );
+}
+
+function Letter({
+  letter,
+  workingDays,
+  relatedHref,
+  source,
+  reviewOf,
+}: {
+  letter: Schemas["LetterResult"];
+  workingDays: number | null;
+  relatedHref: (checkId: string) => string;
+  source: Source;
+  reviewOf: ReviewOf;
+}) {
+  const { deadline } = letter;
+  return (
+    <>
+      <div data-testid="deadline" className="border-t border-ink pt-3">
+        <SectionTitle label="Reply deadline" count={1} />
+        <p className="num text-2xl font-medium" data-testid="deadline-date">
+          {deadline.due ? formatDay(deadline.due) : "Not found"}
+        </p>
+        {workingDays !== null && (
+          <p className={`text-sm ${workingDays <= 3 ? "text-bad" : ""}`} data-testid="working-days">
+            {workingDaysLabel(workingDays)}{" "}
+            <span className="text-xs text-muted">(Monday to Friday; public holidays not counted)</span>
+          </p>
+        )}
+        <p className={`mt-1 text-sm ${deadline.status === "verified" ? "" : "text-warn"}`}>
+          {DEADLINE_STATUS[deadline.status]}
+        </p>
+        {deadline.quote && deadline.page !== null && (
+          <p className="mt-1 text-xs">
+            {source(letter.doc_id, deadline.page, deadline.quote)}{" "}
+            <span className="text-muted">“{deadline.quote}”</span>
+          </p>
+        )}
+        <p className="mt-2 text-xs text-muted">Confirm the date against the letter before you rely on it.</p>
+        <div className="mt-2">{reviewOf(deadline.finding_id)}</div>
+      </div>
+
+      <div>
+        <SectionTitle label="INZ concerns" count={letter.concerns.length} />
+        {letter.concerns.length === 0 ? (
+          <p className="border-y border-rule py-3 text-sm text-muted">No concerns were read from the letter.</p>
+        ) : (
+          <ol className="grid gap-5">
+            {letter.concerns.map((concern) => (
+              <li key={concern.finding_id} data-testid="concern" className="border-t border-ink pt-3">
+                <div className="flex flex-wrap items-center gap-2">
+                  <span className="font-mono text-xs text-muted">{concern.finding_id}</span>
+                  <span className="text-sm font-medium">{concern.summary}</span>
+                  <ModelBadge />
+                </div>
+                <p className="mt-1 text-xs">
+                  INZ: {source(letter.doc_id, concern.page, concern.quote)}{" "}
+                  <span className="text-muted">“{concern.quote}”</span>
+                </p>
+                <p className="mt-2 text-sm">
+                  <span className={`font-medium ${EVIDENCE[concern.status].tone}`} data-testid="evidence-status">
+                    {EVIDENCE[concern.status].label}
+                  </span>
+                  {" — "}
+                  {concern.finding}
+                </p>
+                {concern.downgraded && (
+                  <p className="mt-1 text-xs text-warn">
+                    Set by code: {CONCERN_DOWNGRADE[concern.downgraded]}.
+                  </p>
+                )}
+                <Citations citations={concern.citations} source={source} />
+                {concern.conflict_ids.length > 0 && letter.related_check_id && (
+                  <p className="mt-1 text-xs">
+                    Related conflicts:{" "}
+                    {concern.conflict_ids.map((cid) => (
+                      <Link key={cid} href={relatedHref(letter.related_check_id ?? "")} className="mr-2 font-mono text-accent hover:underline">
+                        {cid}
+                      </Link>
+                    ))}
+                  </p>
+                )}
+                {concern.client_request && (
+                  <p className="mt-1 text-xs">
+                    Ask the client for: <span data-testid="client-request">{concern.client_request}</span>
+                  </p>
+                )}
+                <div className="mt-2">{reviewOf(concern.finding_id)}</div>
+              </li>
+            ))}
+          </ol>
+        )}
+      </div>
+
+      <div>
+        <SectionTitle label="Passages in no concern" count={letter.unaccounted.length} tone="text-warn" />
+        {letter.unaccounted.length === 0 ? (
+          <p className="border-y border-rule py-3 text-sm text-muted">
+            Every passage of the letter is in a concern or was read as context.
+          </p>
+        ) : (
+          <ol className="grid gap-4">
+            {letter.unaccounted.map((u) => (
+              <li key={u.finding_id} data-testid="unaccounted" className="border-t border-ink pt-3">
+                <div className="flex flex-wrap items-center gap-2 text-sm">
+                  <span className="font-mono text-xs text-muted">{u.finding_id}</span>
+                  {source(letter.doc_id, u.page, u.text, `${u.passage_id} · p${u.page}`)}
+                </div>
+                <p className="mt-1 text-sm">“{u.text}”</p>
+                <p className="mt-1 text-xs text-muted">Check whether this raises a point the reply must answer.</p>
+                <div className="mt-2">{reviewOf(u.finding_id)}</div>
+              </li>
+            ))}
+          </ol>
+        )}
+      </div>
+
+      <Draft title="Email to the client" text={letter.client_email} empty="Nothing to ask the client for." testId="client-email" />
+      <Draft title="Reply outline" text={letter.reply_outline} empty="No concerns to outline." testId="reply-outline" />
+    </>
+  );
+}
+
+/** Assembled by code from the results above; copied by the adviser, never sent from here. */
+function Draft({ title, text, empty, testId }: { title: string; text: string; empty: string; testId: string }) {
+  const [copied, setCopied] = useState<"" | "copied" | "failed">("");
+  return (
+    <div>
+      <div className="mb-3 flex flex-wrap items-baseline justify-between gap-2">
+        <h2 className="text-sm font-semibold uppercase tracking-wide">{title}</h2>
+        {text && (
+          <button
+            type="button"
+            onClick={() =>
+              navigator.clipboard.writeText(text).then(
+                () => setCopied("copied"),
+                () => setCopied("failed"),
+              )
+            }
+            className="border border-rule px-2 py-0.5 text-xs hover:border-ink"
+          >
+            {copied === "copied" ? "Copied" : "Copy"}
+          </button>
+        )}
+      </div>
+      {copied === "failed" && <p className="mb-2 text-xs text-warn">Could not copy; select the text instead.</p>}
+      {text ? (
+        <pre data-testid={testId} className="overflow-x-auto whitespace-pre-wrap border border-rule px-3 py-2 font-mono text-xs">
+          {text}
+        </pre>
+      ) : (
+        <p className="border-y border-rule py-3 text-sm text-muted">{empty}</p>
+      )}
+      <p className="mt-1 text-xs text-muted">Built from the findings above. Edit it before you use it; nothing is sent from here.</p>
     </div>
   );
 }

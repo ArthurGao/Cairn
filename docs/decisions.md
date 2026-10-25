@@ -237,3 +237,24 @@ cannot.
 
 **Revisit when** another category needs the same rule; then the fact-categories table should
 mark it, rather than a constant in code.
+
+## D-21 — An INZ letter reply is a third check kind, and the letter is never evidence
+
+**Decision.** Replying to an INZ letter (PPI or request for information) is `kind: letter` in
+`CaseCheckWorkflow`, not a new workflow (§8.8). The letter is uploaded with `source: inz`; only the
+letter check that replies to it reads it, and no check uses it as evidence. Code splits the letter into numbered
+passages and reports every passage the model put in no concern; the deadline is verified only
+when its quote carries the same date, and the adviser confirms it like any finding. The client
+email and reply outline are assembled by code from validated results.
+
+**Why.** Ingest, quote verification, gaps, review, audit and sign-off already exist and are what
+make a reply trustworthy, so a new kind reuses them instead of copying them. An INZ letter
+restates the applicant's own facts in INZ's words; read as evidence it would create false
+conflicts or "support" a concern with INZ's own sentence. Missing one of INZ's points or the
+deadline is the costly failure, so coverage of the letter is code's job (D-13), as it is for
+documents and checklist items. Drafting the email and outline in code keeps them consistent with
+what the adviser reviewed, at no extra model call.
+
+**Consequences.** The working-day count ignores public holidays (said in the UI); reminders and
+escalation wait for notifications and adviser identity (§17). A letter that cannot be read in
+full fails the check rather than producing a partial list.

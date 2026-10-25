@@ -59,6 +59,8 @@ class CheckCounts(Model):
     checked: int = 0
     pending: int = 0
     unable: int = 0
+    concerns: int = 0
+    not_supported: int = 0  # letter concerns the case's documents do not fully support
     gaps: int = 0
     clean: bool = False
 
@@ -67,6 +69,7 @@ class CheckBrief(Model):
     check_id: str
     kind: CheckKind
     checklist_skill: str | None
+    letter_doc_id: str | None
     status: Literal["running", "completed", "failed"]
     started: datetime
     counts: CheckCounts | None = None
@@ -99,6 +102,7 @@ class ChecklistView(Model):
 class StartCheck(Model):
     kind: CheckKind
     checklist_skill: str | None = None
+    letter_doc_id: str | None = None  # kind letter: an uploaded INZ letter (§8.8)
 
 
 class CheckStarted(Model):
@@ -117,6 +121,9 @@ class CheckView(Model):
     blockers: list[str] = Field(default_factory=list[str])
     signed_off: SignOff | None = None
     error: str | None = None
+    # kind letter: Monday-Friday days from today (New Zealand) to the letter's deadline,
+    # negative once passed; public holidays are not counted out
+    deadline_working_days: int | None = None
 
 
 class ReviewIn(Model):

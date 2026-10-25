@@ -3,7 +3,17 @@
 import { useId, useState } from "react";
 
 /** Drag-and-drop area that also works with the keyboard through a normal file input. */
-export function Upload({ busy, onFiles }: { busy: boolean; onFiles: (files: File[]) => void }) {
+export function Upload({
+  busy,
+  onFiles,
+  what = "PDF, PNG, JPEG, text or Markdown; synthetic documents only.",
+  testId = "file-input",
+}: {
+  busy: boolean;
+  onFiles: (files: File[]) => void;
+  what?: string;
+  testId?: string;
+}) {
   const id = useId();
   const [over, setOver] = useState(false);
   return (
@@ -22,8 +32,7 @@ export function Upload({ busy, onFiles }: { busy: boolean; onFiles: (files: File
       className={`border border-dashed px-4 py-5 text-sm ${over ? "border-accent bg-accent-wash" : "border-rule"}`}
     >
       <label htmlFor={id} className="cursor-pointer">
-        <span className="font-medium text-accent underline">Choose files</span> or drop them here. PDF, PNG,
-        JPEG, text or Markdown; synthetic documents only.
+        <span className="font-medium text-accent underline">Choose files</span> or drop them here. {what}
       </label>
       <input
         id={id}
@@ -32,7 +41,7 @@ export function Upload({ busy, onFiles }: { busy: boolean; onFiles: (files: File
         disabled={busy}
         accept=".pdf,.png,.jpg,.jpeg,.txt,.md"
         className="sr-only"
-        data-testid="file-input"
+        data-testid={testId}
         onChange={(event) => {
           const files = Array.from(event.target.files ?? []);
           if (files.length) onFiles(files);

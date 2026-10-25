@@ -1,11 +1,12 @@
 """Case routes (design §11): cases, uploads, pages, checks, review and sign-off."""
 
-from datetime import UTC, datetime
+from datetime import UTC, date, datetime
 from io import BytesIO
 from typing import Annotated, Any
+from zoneinfo import ZoneInfo
 
 import pypdfium2 as pdfium
-from fastapi import APIRouter, Depends, File, UploadFile
+from fastapi import APIRouter, Depends, File, Form, UploadFile
 from fastapi.responses import FileResponse, Response
 from PIL import Image
 from temporalio.client import WorkflowExecutionStatus
@@ -30,12 +31,13 @@ from cairn.api.schemas import (
 )
 from cairn.api.services import Services, services
 from cairn.core.cases import store
-from cairn.core.cases.coverage import is_clean
-from cairn.core.cases.items import status_counts
+from cairn.core.cases.coverage import check_counts
+from cairn.core.cases.letters import require_letter, working_days_until
 from cairn.core.cases.models import (
     AuditEntry,
     CheckResult,
     CheckStart,
+    DocSource,
     Document,
     Page,
 )
@@ -56,16 +58,13 @@ def _now() -> datetime:
     return datetime.now(UTC)
 
 
+def _today(tz: str) -> date:
+    """Today where the advisers are (`settings.tz`): INZ deadlines are New Zealand dates."""
+    return _now().astimezone(ZoneInfo(tz)).date()
+
+
 def _counts(result: CheckResult) -> CheckCounts:
-    counts = status_counts(result.items)
-    return CheckCounts(
-        conflicts=len(result.conflicts),
-        checked=counts["checked"],
-        pending=counts["pending"],
-        unable=counts["unable"],
-        gaps=len(result.gaps),
-        clean=is_clean(result),
-    )
+    return CheckCounts.model_validate(check_counts(result))
 
 
 def _sign_off(audit: list[AuditEntry], check_id: str) -> SignOff | None:
@@ -80,6 +79,7 @@ def _briefs(deps: Services, case_id: str) -> list[CheckBrief]:
             check_id=start.check_id,
             kind=start.kind,
             checklist_skill=start.checklist_skill,
+            letter_doc_id=start.letter_doc_id,
             status=result.status if result else "running",
             started=start.started,
             counts=_counts(result) if result else None,
@@ -133,7 +133,10 @@ def get_case(case_id: str, deps: Deps) -> CaseDetail:
     operation_id="uploadDocuments",
 )
 async def upload_documents(
-    case_id: str, deps: Deps, files: Annotated[list[UploadFile], File()]
+    case_id: str,
+    deps: Deps,
+    files: Annotated[list[UploadFile], File()],
+    source: Annotated[DocSource, Form()] = "client",
 ) -> list[Document]:
     settings = deps.settings
     limits = store.CaseLimits(
@@ -157,6 +160,7 @@ async def upload_documents(
                 data,
                 _now(),
                 limits,
+                source,
             )
         )
     return documents
@@ -254,6 +258,8 @@ async def start_check(case_id: str, body: StartCheck, deps: Deps) -> CheckStarte
         raise Invalid("upload at least one document before running a check", code="case_empty")
     if body.kind == "presubmission":
         require_checklist(settings.home / "skills", body.checklist_skill)
+    if body.kind == "letter":
+        require_letter(manifest, body.letter_doc_id)
     client = await deps.temporal.client()
     check_id = str(ULID())
     check = CheckInput(
@@ -261,6 +267,7 @@ async def start_check(case_id: str, body: StartCheck, deps: Deps) -> CheckStarte
         case_id=case_id,
         kind=body.kind,
         checklist_skill=body.checklist_skill if body.kind == "presubmission" else None,
+        letter_doc_id=body.letter_doc_id if body.kind == "letter" else None,
         map_budget=settings.map_budget,
         case_context_budget=settings.case_context_budget,
         min_page_chars=settings.min_page_chars,
@@ -277,6 +284,7 @@ async def start_check(case_id: str, body: StartCheck, deps: Deps) -> CheckStarte
             check_id=check_id,
             kind=check.kind,
             checklist_skill=check.checklist_skill,
+            letter_doc_id=check.letter_doc_id,
             started=_now(),
         ),
     )
@@ -329,6 +337,9 @@ async def get_check(case_id: str, check_id: str, deps: Deps) -> CheckView:
     view.notes = store.review_notes(audit, check_id)
     view.blockers = store.signoff_blockers(result, audit)
     view.signed_off = _sign_off(audit, check_id)
+    if result.letter and result.letter.deadline.due:
+        today = _today(deps.settings.tz)
+        view.deadline_working_days = working_days_until(result.letter.deadline.due, today)
     return view
 
 
