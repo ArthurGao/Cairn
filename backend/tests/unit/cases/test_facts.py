@@ -27,6 +27,13 @@ from cairn.core.cases.spec import Category
         ("period", "2021-01/2022-01", "2021-01-05/2022-01-31", True),
         ("text", "Warehouse  Supervisor", "warehouse supervisor", True),
         ("text", "Warehouse Supervisor", "Warehouse Manager", False),
+        # One value containing the other's words in order is the same value with more detail.
+        ("text", "Maintenance Engineer", "Maintenance Engineer, permanent full-time", True),
+        ("text", "12 Example Street, Hamilton", "12 Example Street", True),
+        ("text", "Jordon Example", "Jordan", False),
+        ("text", "Engineer Maintenance", "Maintenance Engineer, permanent", False),
+        ("text", "Engineer", "Engineering Manager", False),
+        ("text", "", "Engineer", False),
     ],
 )
 def test_values_agree_at_the_coarser_precision(kind: str, a: str, b: str, agree: bool) -> None:

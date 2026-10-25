@@ -17,6 +17,7 @@ from cairn.core.cases.wording import template_question, template_summary, uses_b
 
 QUALIFIER_MATCH = 0.90
 _DATE = re.compile(r"^(\d{4})(?:-(\d{2})(?:-(\d{2}))?)?$")
+_WORD = re.compile(r"\w+")
 OPEN_END = ".."
 
 
@@ -87,7 +88,19 @@ def values_agree(a: Normalised, b: Normalised) -> bool:
         if a.end is None or b.end is None:
             return a.end is None and b.end is None
         return dates_agree(a.end, b.end)
+    if isinstance(a, str) and isinstance(b, str):
+        return _words_within(a, b) or _words_within(b, a)
     return a == b
+
+
+def _words_within(short: str, long: str) -> bool:
+    """`short`'s words appear in order, together, in `long`: the same value with more detail
+    ("Maintenance Engineer" in "Maintenance Engineer, permanent full-time"). The model pass
+    still judges text values, so this only stops the rule pass from flagging added detail."""
+    a, b = _WORD.findall(short), _WORD.findall(long)
+    if not a:
+        return not b
+    return any(b[i : i + len(a)] == a for i in range(len(b) - len(a) + 1))
 
 
 # --- §8.3 validation ------------------------------------------------------------------------

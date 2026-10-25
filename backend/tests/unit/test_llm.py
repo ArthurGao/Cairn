@@ -179,8 +179,10 @@ def test_prompts_are_versioned() -> None:
         "case_check_item",
     ):
         version, text = load_prompt(name)
-        assert (name, version) == (name, "1")
+        assert (name, version) == (name, "2" if name == "case_extract_facts" else "1")
         assert not text.startswith("<!--")
+    # v2: a text value is only the fact itself, so extras never look like a conflict.
+    assert "is the value itself and nothing else" in load_prompt("case_extract_facts")[1]
 
 
 async def test_ingest_failures_are_recorded_not_raised(

@@ -687,7 +687,11 @@ never read env). Activities that call a model bound their own concurrency to `co
    `qualifier` (e.g. employer name) is matched by `token_set_ratio ≥ 0.90` after normalisation.
    Within a group, two facts from different documents conflict when their normalised values differ
    for date/period categories — compared at the coarser of the two precisions, so `2022-03` and
-   `2022-03-14` agree — or differ after case/whitespace normalisation for text categories.
+   `2022-03-14` agree — or differ after case/whitespace normalisation for text categories, where
+   one value whose words appear in order inside the other is the same value with more detail
+   (`Maintenance Engineer` agrees with `Maintenance Engineer, permanent full-time`); the model
+   pass still judges text values. The extraction prompt (v2) asks for the bare value in text
+   categories, so added detail rarely reaches this rule.
 2. **Model pass.** Role `case.compare_facts` gets the accepted facts (ids, values, document
    names — no page text) and the skill body; returns `{conflicts: [{fact_ids, summary, question}]}`.
    Code accepts one only if every id exists, the facts come from ≥ 2 documents, and they share a

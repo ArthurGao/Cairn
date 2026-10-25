@@ -108,7 +108,11 @@ async def test_consistency_check_on_the_sample(
     assert [f.fact_id for f in result.facts] == [f"f{n}" for n in range(1, 15)]
     assert (result.error, result.dropped, result.wording_replacements) == (None, [], 0)
     assert [c.role for c in result.calls].count("document.transcribe") == 2
-    assert {c.prompt_version for c in result.calls} == {"1"}
+    assert {(c.role, c.prompt_version) for c in result.calls} == {
+        ("document.transcribe", "1"),
+        ("case.extract_facts", "2"),
+        ("case.compare_facts", "1"),
+    }
     passport = store.read_page(cases_dir, "C1", "passport-scan", 1)
     assert (passport.method, passport.model) == ("transcribed", "anthropic/claude-sonnet-5.5")
     assert "Passport no: XS0000001" in passport.text
