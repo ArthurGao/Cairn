@@ -181,10 +181,17 @@ def test_prompts_are_versioned() -> None:
         "case_match_evidence",
     ):
         version, text = load_prompt(name)
-        assert (name, version) == (name, "2" if name == "case_extract_facts" else "1")
+        assert (name, version) == (
+            name,
+            "2" if name in {"case_extract_facts", "case_match_evidence"} else "1",
+        )
         assert not text.startswith("<!--")
     # v2: a text value is only the fact itself, so extras never look like a conflict.
     assert "is the value itself and nothing else" in load_prompt("case_extract_facts")[1]
+    # v2: a request is written to the client, and a mere mention of an item is not evidence of it.
+    match = load_prompt("case_match_evidence")[1]
+    assert 'headed "please send us:"' in match
+    assert "only mentions the missing\n  item" in match
 
 
 async def test_ingest_failures_are_recorded_not_raised(

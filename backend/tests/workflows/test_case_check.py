@@ -323,7 +323,7 @@ async def test_letter_check_maps_every_concern_to_the_evidence(
     assert result.wording_replacements == 0
     assert {(c.role, c.prompt_version) for c in result.calls} == {
         ("case.read_letter", "1"),
-        ("case.match_evidence", "1"),
+        ("case.match_evidence", "2"),
     }
     assert result.finding_ids() == ["d1", "q1", "q2", "q3", "u1", "g1"]
     await _replay(history)

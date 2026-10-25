@@ -797,7 +797,9 @@ sign-off are the same as §8.1–§8.7.
    pages except INZ letters as a cached prefix (over `case_context_budget` fails the check with
    `case_too_large_for_v1`), plus the conflicts (id, summary) of the latest completed consistency
    check, if any (`related_check_id`). Reply per concern `{concern_id, status, finding,
-   citations, client_request?, conflict_ids}`. Code rules mirror §8.5: exactly one result per
+   citations, client_request?, conflict_ids}`. The prompt (v2) asks for `client_request` written
+   to the client (it goes straight into the client email) and treats a document that only
+   mentions a missing item (a cover letter listing it) as `no_evidence`, not `partial`. Code rules mirror §8.5: exactly one result per
    concern (none → `unable`, `downgraded: missing`; failed batch → `unable`, `call_failed`);
    citations verified, a quote from the letter is never evidence; `supported`/`partial` without
    a valid citation → `no_evidence`, `downgraded: no_valid_citation`; unknown conflict ids
