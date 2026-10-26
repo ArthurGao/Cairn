@@ -36,7 +36,7 @@ export function CitationViewer({ caseId, citation }: { caseId: string; citation:
           href={`${API_URL}/api/cases/${caseId}/documents/${citation.docId}/pages/${citation.page}/render`}
           target="_blank"
           rel="noreferrer"
-          className="text-xs text-accent underline"
+          className="link text-xs"
         >
           Page image <span className="sr-only">(opens in a new tab)</span>↗
         </a>

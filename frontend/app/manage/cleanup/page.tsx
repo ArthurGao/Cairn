@@ -4,6 +4,7 @@ import { useMutation, useQuery } from "@tanstack/react-query";
 import Link from "next/link";
 import { useEffect, useState } from "react";
 
+import { Guide } from "@/components/Guide";
 import { PageHeader } from "@/components/PageHeader";
 import { Empty, ErrorState, Loading } from "@/components/States";
 import { api } from "@/lib/api/client";
@@ -37,14 +38,21 @@ export default function CleanupsPage() {
         </p>
       </PageHeader>
       <section className="col-span-12 grid gap-2 lg:col-span-4">
-        <button
-          type="button"
-          onClick={() => trigger.mutate()}
-          disabled={trigger.isPending}
-          className="justify-self-start bg-accent px-3 py-1.5 text-sm text-paper disabled:opacity-40"
+        <Guide
+          id="cleanup.run"
+          hint="Try it now instead of waiting for Sunday"
+          enabled={list.data?.length === 0}
+          className="justify-self-start"
         >
-          {trigger.isPending ? "Starting…" : "Run cleanup now"}
-        </button>
+          <button
+            type="button"
+            onClick={() => trigger.mutate()}
+            disabled={trigger.isPending}
+            className="justify-self-start bg-accent px-3 py-1.5 text-sm text-paper disabled:opacity-40"
+          >
+            {trigger.isPending ? "Starting…" : "Run cleanup now"}
+          </button>
+        </Guide>
         {trigger.isError && (
           <p role="alert" className="text-sm text-bad">
             {errorMessage(trigger.error)}
@@ -68,9 +76,11 @@ export default function CleanupsPage() {
           <ul className="border-t border-ink text-sm">
             {list.data.map((c) => (
               <li key={c.workflow_id} data-testid="cleanup-row" className="grid grid-cols-12 gap-3 border-b border-rule py-2">
-                <Link href={`/manage/cleanup/${encodeURIComponent(c.workflow_id)}`} className="col-span-5 truncate font-mono text-xs hover:underline">
-                  {c.workflow_id}
-                </Link>
+                <Guide id="cleanup.open" hint="Open to review the proposal" block className="col-span-5 min-w-0">
+                  <Link href={`/manage/cleanup/${encodeURIComponent(c.workflow_id)}`} className="link block truncate font-mono text-xs">
+                    {c.workflow_id}
+                  </Link>
+                </Guide>
                 <span className="col-span-3">
                   <CleanupStatus status={c.status} />
                 </span>

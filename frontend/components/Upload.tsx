@@ -32,7 +32,7 @@ export function Upload({
       className={`border border-dashed px-4 py-5 text-sm ${over ? "border-accent bg-accent-wash" : "border-rule"}`}
     >
       <label htmlFor={id} className="cursor-pointer">
-        <span className="font-medium text-accent underline">Choose files</span> or drop them here. {what}
+        <span className="font-medium link">Choose files</span> or drop them here. {what}
       </label>
       <input
         id={id}

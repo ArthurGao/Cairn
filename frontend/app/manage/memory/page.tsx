@@ -3,6 +3,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { useState } from "react";
 
+import { Guide } from "@/components/Guide";
 import { OpDiff } from "@/components/OpDiff";
 import { PageHeader } from "@/components/PageHeader";
 import { Empty, ErrorState, Loading } from "@/components/States";
@@ -48,22 +49,24 @@ export default function MemoryPage() {
                   <ul className="border-t border-ink text-sm">
                     {entries.map((entry) => (
                       <li key={entry.slug} data-testid="memory-row" className="border-b border-rule">
-                        <button
-                          type="button"
-                          onClick={() => setSelected(entry.slug)}
-                          aria-pressed={selected === entry.slug}
-                          className={`grid w-full grid-cols-12 gap-2 py-2 text-left ${selected === entry.slug ? "bg-accent-wash" : ""}`}
-                        >
-                          <span className="col-span-9">
-                            <span className="font-medium">{entry.title}</span>
-                            <span className="block text-xs text-muted">{entry.description}</span>
-                          </span>
-                          <span className="num col-span-3 text-right font-mono text-xs text-muted">
-                            {entry.usage.reads} reads
-                            <br />
-                            {entry.usage.last_read ?? "never read"}
-                          </span>
-                        </button>
+                        <Guide id="memory.open" hint="Click to see its history" block>
+                          <button
+                            type="button"
+                            onClick={() => setSelected(entry.slug)}
+                            aria-pressed={selected === entry.slug}
+                            className={`grid w-full grid-cols-12 gap-2 py-2 text-left ${selected === entry.slug ? "bg-accent-wash" : ""}`}
+                          >
+                            <span className="col-span-9">
+                              <span className="link font-medium">{entry.title}</span>
+                              <span className="block text-xs text-muted">{entry.description}</span>
+                            </span>
+                            <span className="num col-span-3 text-right font-mono text-xs text-muted">
+                              {entry.usage.reads} reads
+                              <br />
+                              {entry.usage.last_read ?? "never read"}
+                            </span>
+                          </button>
+                        </Guide>
                       </li>
                     ))}
                   </ul>

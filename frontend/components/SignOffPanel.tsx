@@ -1,3 +1,4 @@
+import { Guide } from "@/components/Guide";
 import type { Schemas } from "@/lib/api/client";
 import { formatWhen, plural } from "@/lib/format";
 
@@ -36,14 +37,16 @@ export function SignOffPanel({
               ? "Every finding is settled."
               : `${plural(view.blockers.length, "finding")} to settle: ${view.blockers.join(", ")}`}
           </p>
-          <button
-            type="button"
-            disabled={view.blockers.length > 0 || !adviser.trim()}
-            onClick={onSignOff}
-            className="justify-self-start bg-accent px-3 py-1.5 text-sm text-paper disabled:opacity-40"
-          >
-            Sign off
-          </button>
+          <Guide id="check.signoff" hint="Sign off when every finding is settled" after="check.review" className="justify-self-start">
+            <button
+              type="button"
+              disabled={view.blockers.length > 0 || !adviser.trim()}
+              onClick={onSignOff}
+              className="justify-self-start bg-accent px-3 py-1.5 text-sm text-paper disabled:opacity-40"
+            >
+              Sign off
+            </button>
+          </Guide>
         </>
       )}
     </div>

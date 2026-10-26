@@ -3,6 +3,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { useState } from "react";
 
+import { Guide } from "@/components/Guide";
 import { ModelBadge } from "@/components/ModelBadge";
 import { OpDiff } from "@/components/OpDiff";
 import { PageHeader } from "@/components/PageHeader";
@@ -111,14 +112,16 @@ export default function RunPage() {
                       {op.undone ? (
                         <span className="text-xs text-muted">undone</span>
                       ) : (
-                        <button
-                          type="button"
-                          onClick={() => setUndoing(op.change_id)}
-                          aria-label={`Undo ${op.op} of ${op.slug}`}
-                          className="border border-rule px-2 py-0.5 text-xs hover:border-ink"
-                        >
-                          Undo
-                        </button>
+                        <Guide id="run.undo" hint="Every change can be undone">
+                          <button
+                            type="button"
+                            onClick={() => setUndoing(op.change_id)}
+                            aria-label={`Undo ${op.op} of ${op.slug}`}
+                            className="border border-rule px-2 py-0.5 text-xs hover:border-ink"
+                          >
+                            Undo
+                          </button>
+                        </Guide>
                       )}
                     </div>
                     <div className="mt-2">

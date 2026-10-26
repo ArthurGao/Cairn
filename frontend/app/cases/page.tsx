@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 
+import { Guide } from "@/components/Guide";
 import { StatusCounts } from "@/components/StatusCounts";
 import { Empty, ErrorState, Loading } from "@/components/States";
 import { api, type Schemas } from "@/lib/api/client";
@@ -53,12 +54,15 @@ export default function CasesPage() {
               </tr>
             </thead>
             <tbody>
-              {cases.data.map((c) => (
+              {cases.data.map((c, n) => (
                 <tr key={c.case_id} data-testid="case-row" className="border-b border-rule align-top">
                   <td className="py-3">
-                    <Link href={`/cases/${c.case_id}`} className="font-medium hover:underline">
-                      {c.label}
-                    </Link>
+                    {/* The list is newest first; the walkthrough starts with the oldest case. */}
+                    <Guide id="cases.open" hint="Start with this case" enabled={n === cases.data.length - 1}>
+                      <Link href={`/cases/${c.case_id}`} className="link font-medium">
+                        {c.label}
+                      </Link>
+                    </Guide>
                     <div className="font-mono text-xs text-muted">{formatWhen(c.created)}</div>
                   </td>
                   <td className="num py-3 text-right">{c.documents}</td>

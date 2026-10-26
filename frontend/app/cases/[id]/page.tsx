@@ -7,6 +7,7 @@ import { useRouter } from "next/navigation";
 import { PageHeader } from "@/components/PageHeader";
 import { useState } from "react";
 
+import { Guide } from "@/components/Guide";
 import { StatusCounts } from "@/components/StatusCounts";
 import { Empty, ErrorState, Loading } from "@/components/States";
 import { Upload } from "@/components/Upload";
@@ -144,14 +145,21 @@ export default function CasePage() {
       <aside className="col-span-12 grid content-start gap-6 lg:col-span-4">
         <div className="grid gap-3 border-t border-ink pt-4">
           <h2 className="text-sm font-semibold uppercase tracking-wide">Run a check</h2>
-          <button
-            type="button"
-            disabled={start.isPending || evidence.length === 0}
-            onClick={() => start.mutate({ kind: "consistency" })}
-            className="justify-self-start bg-accent px-3 py-1.5 text-sm text-paper disabled:opacity-40"
+          <Guide
+            id="case.run"
+            hint="Run a check"
+            enabled={checks.length === 0 && evidence.length > 0}
+            className="justify-self-start"
           >
-            Run consistency check
-          </button>
+            <button
+              type="button"
+              disabled={start.isPending || evidence.length === 0}
+              onClick={() => start.mutate({ kind: "consistency" })}
+              className="justify-self-start bg-accent px-3 py-1.5 text-sm text-paper disabled:opacity-40"
+            >
+              Run consistency check
+            </button>
+          </Guide>
           <label className="grid gap-1 text-sm">
             <span>Checklist</span>
             <select
@@ -222,13 +230,19 @@ export default function CasePage() {
             <ul className="grid gap-3 text-sm">
               {checks.map((check) => (
                 <li key={check.check_id} data-testid="check-row" className="border-b border-rule pb-3">
-                  <Link href={`/cases/${id}/checks/${check.check_id}`} className="font-medium hover:underline">
-                    {checkKindLabel(check.kind)}
-                  </Link>
-                  <div className="font-mono text-xs text-muted">{formatWhen(check.started)}</div>
-                  <div className="mt-1">
-                    <StatusCounts check={check} />
-                  </div>
+                  <Guide id="case.open-check" hint="Open to see the findings" block>
+                    {/* The whole row opens the check, so the counts are clickable too. */}
+                    <Link href={`/cases/${id}/checks/${check.check_id}`} className="group block">
+                      <span className="flex items-baseline justify-between gap-3">
+                        <span className="link font-medium">{checkKindLabel(check.kind)}</span>
+                        <span className="text-accent group-hover:underline">Open →</span>
+                      </span>
+                      <span className="block font-mono text-xs text-muted">{formatWhen(check.started)}</span>
+                      <span className="mt-1 block">
+                        <StatusCounts check={check} />
+                      </span>
+                    </Link>
+                  </Guide>
                 </li>
               ))}
             </ul>

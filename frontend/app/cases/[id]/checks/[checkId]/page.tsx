@@ -8,6 +8,7 @@ import { type Citation, CitationViewer } from "@/components/CitationViewer";
 import { ConfirmDialog } from "@/components/ConfirmDialog";
 import { CoverageBar } from "@/components/CoverageBar";
 import { FindingReview } from "@/components/FindingReview";
+import { Guide } from "@/components/Guide";
 import { ModelBadge } from "@/components/ModelBadge";
 import { PageHeader } from "@/components/PageHeader";
 import { SignOffPanel } from "@/components/SignOffPanel";
@@ -111,23 +112,34 @@ export default function CheckPage() {
   const names = new Map((detail.data?.manifest.documents ?? []).map((d) => [d.doc_id, d.filename]));
   const name = (docId: string) => names.get(docId) ?? docId;
 
+  // Every source and open finding is a hint candidate; Guide shows it on the first one only.
   const reviewOf: ReviewOf = (findingId) => (
-    <FindingReview
-      findingId={findingId}
-      state={view.review[findingId]}
-      note={view.notes[findingId]}
-      locked={Boolean(view.signed_off)}
-      onAction={(action) => setPending({ findingId, action })}
-    />
+    <Guide
+      id="check.review"
+      hint="Confirm, dismiss or resolve"
+      after="check.source"
+      block
+      enabled={!view.signed_off && !view.review[findingId]}
+    >
+      <FindingReview
+        findingId={findingId}
+        state={view.review[findingId]}
+        note={view.notes[findingId]}
+        locked={Boolean(view.signed_off)}
+        onAction={(action) => setPending({ findingId, action })}
+      />
+    </Guide>
   );
   const source: Source = (docId, page, quote, label) => (
-    <button
-      type="button"
-      onClick={() => setCitation({ docId, filename: name(docId), page, quote })}
-      className="text-left text-accent hover:underline"
-    >
-      {label ?? `${name(docId)} · p${page}`}
-    </button>
+    <Guide id="check.source" hint="Click to see the page">
+      <button
+        type="button"
+        onClick={() => setCitation({ docId, filename: name(docId), page, quote })}
+        className="link text-left"
+      >
+        {label ?? `${name(docId)} · p${page}`}
+      </button>
+    </Guide>
   );
 
   return (
@@ -496,7 +508,7 @@ function Letter({
                   <p className="mt-1 text-xs">
                     Related conflicts:{" "}
                     {concern.conflict_ids.map((cid) => (
-                      <Link key={cid} href={relatedHref(letter.related_check_id ?? "")} className="mr-2 font-mono text-accent hover:underline">
+                      <Link key={cid} href={relatedHref(letter.related_check_id ?? "")} className="link mr-2 font-mono">
                         {cid}
                       </Link>
                     ))}

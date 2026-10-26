@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 
+import { Guide } from "@/components/Guide";
 import { PageHeader } from "@/components/PageHeader";
 import { Empty, ErrorState, Loading } from "@/components/States";
 import { api } from "@/lib/api/client";
@@ -43,13 +44,20 @@ export default function RunsPage() {
               className="border border-rule p-2"
             />
           </label>
-          <button
-            type="submit"
-            disabled={!task.trim() || start.isPending}
-            className="justify-self-start bg-accent px-3 py-1.5 text-sm text-paper disabled:opacity-40"
+          <Guide
+            id="runs.start"
+            hint="Give the agent a task"
+            enabled={runs.data?.length === 0}
+            className="justify-self-start"
           >
-            {start.isPending ? "Starting…" : "Start run"}
-          </button>
+            <button
+              type="submit"
+              disabled={!task.trim() || start.isPending}
+              className="justify-self-start bg-accent px-3 py-1.5 text-sm text-paper disabled:opacity-40"
+            >
+              {start.isPending ? "Starting…" : "Start run"}
+            </button>
+          </Guide>
           {start.isError && (
             <p role="alert" className="text-sm text-bad">
               {errorMessage(start.error)}
@@ -69,9 +77,11 @@ export default function RunsPage() {
           <ul className="border-t border-ink text-sm">
             {runs.data.map((run) => (
               <li key={run.run_id} data-testid="run-row" className="grid grid-cols-12 gap-3 border-b border-rule py-2">
-                <Link href={`/manage/runs/${run.run_id}`} className="col-span-8 truncate hover:underline">
-                  {run.task || <span className="font-mono">{run.run_id}</span>}
-                </Link>
+                <Guide id="runs.open" hint="Open to see each step" block className="col-span-8 min-w-0">
+                  <Link href={`/manage/runs/${run.run_id}`} className="link block truncate">
+                    {run.task || <span className="font-mono">{run.run_id}</span>}
+                  </Link>
+                </Guide>
                 <span className={`col-span-2 ${TONE[run.status] ?? "text-muted"}`}>{run.status}</span>
                 <span className="col-span-2 text-right font-mono text-xs text-muted">
                   {run.started ? formatWhen(run.started) : ""}

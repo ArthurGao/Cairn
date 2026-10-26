@@ -27,13 +27,65 @@ body {
   font-family: var(--font-sans);
 }
 
-:focus-visible {
+:focus-visible,
+.guide-on {
   outline: 2px solid var(--color-accent);
   outline-offset: 2px;
 }
 
 .num {
   font-variant-numeric: tabular-nums;
+}
+
+/* Anything that opens something looks clickable without hovering. */
+.link {
+  color: var(--color-accent);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+.link:hover {
+  text-decoration-thickness: 2px;
+}
+
+/* First-use hints (components/Guide.tsx): a pulsing accent ring and a short label. */
+@keyframes guide-pulse {
+  0% { box-shadow: 0 0 0 0 color-mix(in srgb, var(--color-accent) 50%, transparent); }
+  70% { box-shadow: 0 0 0 10px color-mix(in srgb, var(--color-accent) 0%, transparent); }
+  100% { box-shadow: 0 0 0 0 color-mix(in srgb, var(--color-accent) 0%, transparent); }
+}
+.guide-inline {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+}
+.guide-block {
+  display: block;
+}
+.guide-on {
+  animation: guide-pulse 1.6s ease-out infinite;
+}
+/* Room for the ring, so it does not cover the line below an inline hint. */
+.guide-inline.guide-on {
+  margin-block: 4px;
+}
+.guide-tag {
+  background: var(--color-accent);
+  color: var(--color-paper);
+  font-family: var(--font-mono);
+  font-size: 11px;
+  line-height: 1;
+  padding: 4px 6px;
+  white-space: nowrap;
+}
+.guide-block > .guide-tag {
+  display: inline-block;
+  margin-top: 6px;
+}
+@media (prefers-reduced-motion: reduce) {
+  .guide-on {
+    animation: none;
+  }
 }
 
 mark {

@@ -4,6 +4,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
 
 import { ConfirmDialog } from "@/components/ConfirmDialog";
+import { Guide } from "@/components/Guide";
 import { ModelBadge } from "@/components/ModelBadge";
 import { OpDiff } from "@/components/OpDiff";
 import { PageHeader } from "@/components/PageHeader";
@@ -140,14 +141,16 @@ export default function CleanupPage() {
               <input value={reviewer} onChange={(e) => setReviewer(e.target.value)} className="border border-rule px-2 py-1.5" />
             </label>
             <div className="flex flex-wrap gap-2">
-              <button
-                type="button"
-                disabled={selected.size === 0 || !reviewer.trim()}
-                onClick={() => setConfirm("approve")}
-                className="bg-accent px-3 py-1.5 text-sm text-paper disabled:opacity-40"
-              >
-                Approve selected ({selected.size})
-              </button>
+              <Guide id="cleanup.approve" hint="Tick changes, add your name, approve">
+                <button
+                  type="button"
+                  disabled={selected.size === 0 || !reviewer.trim()}
+                  onClick={() => setConfirm("approve")}
+                  className="bg-accent px-3 py-1.5 text-sm text-paper disabled:opacity-40"
+                >
+                  Approve selected ({selected.size})
+                </button>
+              </Guide>
               <button
                 type="button"
                 disabled={!reviewer.trim()}
