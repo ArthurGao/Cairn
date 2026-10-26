@@ -245,6 +245,23 @@ def rule_baseline(facts: Sequence[Fact], categories: Sequence[Category]) -> list
     ] + _overlapping_places(exclusive)
 
 
+def _same_words_per_document(facts: Sequence[Fact]) -> bool:
+    """Every document gives the same words, ignoring case, order and punctuation: one name
+    written as "Priya Sample", "Sample, Priya" or as two facts SAMPLE / PRIYA from a passport's
+    surname and given-name fields. The model judges text values; this only stops it calling a
+    different layout of the same words a conflict."""
+    words: dict[str, set[str]] = {}
+    for fact in facts:
+        words.setdefault(fact.doc_id, set()).update(_WORD.findall(fact.normalised.casefold()))
+    return len({frozenset(found) for found in words.values()}) == 1
+
+
+def _values_agree(facts: Sequence[Fact], kind: Kind) -> bool:
+    if kind == "text":
+        return _same_words_per_document(facts)
+    return not _disagree_across_documents(facts, kind)
+
+
 def accept_model_conflicts(
     proposals: Iterable[ModelConflict], facts: Sequence[Fact], categories: Sequence[Category]
 ) -> tuple[list[ModelConflict], list[Dropped]]:
@@ -261,9 +278,7 @@ def accept_model_conflicts(
             dropped.append(Dropped(reason="single_document", detail=ids))
         elif len({f.category for f in members}) != 1:
             dropped.append(Dropped(reason="mixed_categories", detail=ids))
-        elif kinds[members[0].category] != "text" and not _disagree_across_documents(
-            members, kinds[members[0].category]
-        ):
+        elif _values_agree(members, kinds[members[0].category]):
             dropped.append(Dropped(reason="values_agree", detail=ids))
         else:
             accepted.append(proposal)

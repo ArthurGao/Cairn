@@ -713,7 +713,10 @@ never read env). Activities that call a model bound their own concurrency to `co
 2. **Model pass.** Role `case.compare_facts` gets the accepted facts (ids, values, document
    names — no page text) and the skill body; returns `{conflicts: [{fact_ids, summary, question}]}`.
    Code accepts one only if every id exists, the facts come from ≥ 2 documents, and they share a
-   category; for date/period categories the values must actually differ under rule 1's comparison.
+   category; for date/period categories the values must actually differ under rule 1's comparison,
+   and for text categories each document must give a different set of words (case, order and
+   punctuation ignored), so `Priya Sample`, `Sample, Priya` and a passport's separate SAMPLE /
+   PRIYA fields are one name, while `Priya Sampel` stays the model's call.
 3. **Union.** Model proposals with the same fact-id set count once. Every model proposal whose
    facts are a subset of a rule conflict's facts merges into it (the first lends its wording);
    the rest stand alone. `origin` lists `rule`, `model` or both.

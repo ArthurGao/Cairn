@@ -152,16 +152,39 @@ def test_accept_model_conflicts_reasons(
         ModelConflict(fact_ids=["f4", "f5"], summary="s", question="q"),  # same document
         ModelConflict(fact_ids=["f2", "f11"], summary="s", question="q"),  # dob vs employment
         ModelConflict(fact_ids=["f6", "f11"], summary="s", question="q"),  # agree by month
-        ModelConflict(fact_ids=["f5", "f7"], summary="s", question="q"),  # text: model's call
+        # text with the same words ("Warehouse Supervisor" twice): agree. A text value that
+        # really differs stays the model's call (test_a_name_in_other_words_order_...).
+        ModelConflict(fact_ids=["f5", "f7"], summary="s", question="q"),
     ]
     accepted, dropped = accept_model_conflicts(proposals, sample_facts, categories)
-    assert [p.fact_ids for p in accepted] == [["f4", "f6"], ["f5", "f7"]]
+    assert [p.fact_ids for p in accepted] == [["f4", "f6"]]
     assert [d.reason for d in dropped] == [
         "unknown_fact",
         "single_document",
         "mixed_categories",
         "values_agree",
+        "values_agree",
     ]
+
+
+def test_a_name_in_other_words_order_or_fields_is_not_a_conflict(
+    categories: list[Category],
+) -> None:
+    # A passport read as SURNAME / GIVEN NAMES gives two facts; the form gives the full name.
+    facts = [
+        _fact("f1", "form", "identity.name", "Priya Sample"),
+        _fact("f2", "passport", "identity.name", "SAMPLE"),
+        _fact("f3", "passport", "identity.name", "PRIYA"),
+        _fact("f4", "offer", "identity.name", "Sample, Priya"),
+        _fact("f5", "letter", "identity.name", "Priya Sampel"),
+    ]
+    proposals = [
+        ModelConflict(fact_ids=["f1", "f2", "f3", "f4"], summary="s", question="q"),
+        ModelConflict(fact_ids=["f1", "f5"], summary="s", question="q"),  # a real misspelling
+    ]
+    accepted, dropped = accept_model_conflicts(proposals, facts, categories)
+    assert [p.fact_ids for p in accepted] == [["f1", "f5"]]
+    assert [(d.reason, d.detail) for d in dropped] == [("values_agree", "f1, f2, f3, f4")]
 
 
 def test_merge_conflicts_origins_and_wording(sample_facts: list[Fact]) -> None:
