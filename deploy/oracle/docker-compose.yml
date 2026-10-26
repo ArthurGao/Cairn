@@ -1,0 +1,83 @@
+# The demo stack on one VM (design §16.1, D-22). Only Caddy publishes ports; everything else is
+# reached by service name. Single replica on purpose: the worker and API share the harness home
+# and case store through file locks (D-01). Run by deploy.sh; secrets come from .env (never git).
+name: cairn-demo
+
+x-backend: &backend
+  image: cairn-backend:${BUILD_SHA:-local}
+  env_file: ${CAIRN_ENV_FILE:-.env}
+  environment:
+    CAIRN_HOME: /data/home
+    CAIRN_CASES_DIR: /data/cases
+    CAIRN_TEMPORAL_ADDRESS: temporal:7233
+  volumes:
+    - home:/data/home
+    - cases:/data/cases
+  depends_on:
+    temporal:
+      condition: service_healthy
+    seed:
+      condition: service_completed_successfully
+  restart: unless-stopped
+
+services:
+  temporal:
+    extends:  # one definition of the dev server (image, flags, healthcheck) for dev and demo
+      file: ../../docker-compose.yml
+      service: temporal
+    ports: !reset []  # internal only; the root file publishes it on loopback for local dev
+    restart: unless-stopped
+
+  # Copies the sample harness home into an empty volume once; never overwrites demo state.
+  seed:
+    image: alpine:3.20
+    volumes:
+      - ../../workspace:/seed:ro
+      - home:/data/home
+      - cases:/data/cases
+    command:
+      - sh
+      - -c
+      - '[ -e /data/home/AGENTS.md ] || { cp -R /seed/. /data/home/ && chown -R 10001 /data/home /data/cases; }'
+
+  api:
+    <<: *backend
+    build:
+      context: ../../backend
+      args:
+        BUILD_SHA: ${BUILD_SHA:-}
+
+  worker:  # the API's image, built once
+    <<: *backend
+    pull_policy: never
+    command: [python, -m, cairn.worker]
+
+  web:
+    build: ../../frontend
+    image: cairn-web:${BUILD_SHA:-local}
+    restart: unless-stopped
+
+  caddy:
+    build: ./caddy
+    image: cairn-caddy:local
+    ports:
+      - "80:80"
+      - "443:443"
+      - "443:443/udp"
+    environment:
+      CAIRN_HOST: ${CAIRN_HOST}
+      DEMO_USER: ${DEMO_USER}
+      DEMO_PASSWORD_HASH: ${DEMO_PASSWORD_HASH}
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy-data:/data
+      - caddy-config:/config
+    depends_on: [api, web]
+    restart: unless-stopped
+
+volumes:
+  home:
+  cases:
+  temporal-data:
+  caddy-data:
+  caddy-config:

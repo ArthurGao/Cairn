@@ -1,6 +1,7 @@
 import { expect, test } from "@playwright/test";
 
-const API = "http://localhost:4700";
+import { API } from "./api";
+
 
 const slugs = async (request: import("@playwright/test").APIRequestContext) =>
   ((await (await request.get(`${API}/api/memory`)).json()).entries as { slug: string }[]).map((e) => e.slug);

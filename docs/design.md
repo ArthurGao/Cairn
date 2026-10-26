@@ -855,7 +855,7 @@ Follows the role-layer rule: call sites name a role; config maps role → vendor
 | --- | --- | --- | --- |
 | `gateway` | Vercel AI Gateway: Claude (`anthropic/*`) and GPT (`openai/*`) models | `AI_GATEWAY_API_KEY` | the gateway's `provider/model` id, exactly as `GET https://ai-gateway.vercel.sh/v1/models` lists it (`anthropic/claude-sonnet-5.5` — a dot, not `claude-sonnet-5-5`) |
 | `anthropic` | Anthropic API directly | `ANTHROPIC_API_KEY` | Anthropic's id (`claude-sonnet-5-5`) |
-| `llmgw` | the local LLM gateway (`~/Code/AI/llm-gateway`) on the developer's own ChatGPT/Claude subscription — **local dev and demos only** (D-19) | none (`CAIRN_LLMGW_BASE_URL`, loopback only) | a gateway profile name (`claude-sub`, `gpt-sub`), from `GET <url>/models` |
+| `llmgw` | the local LLM gateway (`~/Code/AI/llm-gateway`) on the developer's own ChatGPT/Claude subscription — **local dev and demos only** (D-19) | none (`CAIRN_LLMGW_BASE_URL`, loopback only; `CAIRN_LLMGW_TOKEN` when the gateway requires one) | a gateway profile name (`claude-sub`, `gpt-sub`), from `GET <url>/models` |
 | `fake` | nothing: replays `tests/fixtures/llm/<scenario>.json` (`CAIRN_FAKE_SCENARIO`; several files colon-separated, read in order) | — | any |
 | `azure` | **reserved, not built in v1**: the path for client data once Azure Australia processing is verified (§10.4) | — | — |
 
@@ -1107,6 +1107,39 @@ The `azure` vendor and real client data are not a v1 milestone: they need the ve
 - Stop-word list and whitespace normalisation details, as long as the fixture expectations hold.
 - The synthetic fixture generator's tooling (e.g. `reportlab` for PDFs, Pillow for images), as a
   dev dependency only.
+
+### 16.1 Demo deployment (D-22)
+
+Where the demo runs is the builder's choice within these rules; the current one is in
+`deploy/oracle/` (`bootstrap.md` for setup and operations).
+
+- **One host, one entry.** One VM runs Docker Compose with Caddy in front: `/api/*` goes to the
+  API, everything else to the web app, so the browser sees one origin (`NEXT_PUBLIC_API_URL` is
+  empty). The API, the web app and the Temporal dev server (SQLite) are not published. Single
+  replica by design: worker and API share the harness home and case store through file locks
+  (D-01).
+- **Two modes; who triggers model calls decides.**
+  - *Private (default)*: only the owner uses it. Caddy listens on the VM's loopback
+    (`127.0.0.1:8080`, plain HTTP) and the owner reaches it through an SSH tunnel; the only open
+    port is SSH, to the owner's IP. The text roles run on the owner's subscription through the
+    local LLM gateway on the same VM (D-19): the worker uses host networking so `127.0.0.1:8787`
+    is the VM itself, and the gateway requires a bearer token (`CAIRN_LLMGW_TOKEN`) because
+    loopback does not stop other processes on the host. Images and tools stay on a small,
+    budget-capped gateway key. Selected by `COMPOSE_FILE=…:docker-compose.private.yml` in the
+    VM's `.env`.
+  - *Public*: other people use it. Caddy publishes 80/443 with automatic TLS; every role runs on
+    the gateway key, never the local gateway.
+- **A gate before anything else.** Until advisers authenticate (§17), one basic-auth credential
+  covers pages and API in both modes, and Caddy rate-limits per IP, strictly on the POSTs that
+  start model calls (checks, agent runs, cleanup).
+- **Synthetic data only.** The data-class gate stays `synthetic`; there are no backups because
+  the data is regenerable. The home volume is seeded once from `workspace/` and never
+  overwritten by a deploy.
+- **Committed code only.** `deploy.sh` ships `git archive HEAD`, builds on the host and runs
+  `smoke.sh` (through a tunnel in private mode): anonymous and wrong-password requests get 401,
+  `/api/health` reports the deployed commit (`build`, from `CAIRN_BUILD_SHA`), and every port
+  that should be closed is closed from outside. `make rehearse` runs both modes locally with the
+  same images, the fake vendor and the full e2e suite through Caddy.
 
 ## 17. Open items (not blocking v1)
 

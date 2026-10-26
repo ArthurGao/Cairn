@@ -1,0 +1,50 @@
+# The demo's only entry point (design §16.1, D-22): TLS, one basic-auth gate for pages and API,
+# per-IP rate limits, then /api/* to the API and everything else to the web app.
+{
+	order rate_limit before basic_auth
+}
+
+{$CAIRN_HOST} {
+	encode zstd gzip
+
+	header {
+		Strict-Transport-Security "max-age=31536000"
+		X-Content-Type-Options nosniff
+		Referrer-Policy no-referrer
+		X-Frame-Options DENY
+		-Server
+	}
+
+	rate_limit {
+		zone all {
+			key {remote_host}
+			events 600
+			window 1m
+		}
+		# The POSTs that start model calls (checks, agent runs, cleanup) spend gateway credit.
+		zone spend {
+			match {
+				method POST
+				path /api/cases/*/checks /api/runs /api/cleanup/run
+			}
+			key {remote_host}
+			events 10
+			window 10m
+		}
+	}
+
+	basic_auth {
+		{$DEMO_USER} {$DEMO_PASSWORD_HASH}
+	}
+
+	request_body {
+		max_size 200MB
+	}
+
+	handle /api/* {
+		reverse_proxy api:4700
+	}
+	handle {
+		reverse_proxy web:4710
+	}
+}

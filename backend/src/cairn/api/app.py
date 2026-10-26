@@ -113,6 +113,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
             temporal="ok",
             home=str(settings.home),
             cases=str(settings.cases_dir),
+            build=settings.build_sha,
         )
 
     return app

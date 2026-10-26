@@ -1,6 +1,7 @@
 import { expect, test } from "@playwright/test";
 
-const API = "http://localhost:4700";
+import { API } from "./api";
+
 const STALE = "intake-form-v1-dates";
 
 test("trigger → approve → archived, with real file effects", async ({ page, request }) => {

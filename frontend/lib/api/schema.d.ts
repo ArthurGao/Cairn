@@ -1093,6 +1093,8 @@ export interface components {
         };
         /** HealthOk */
         HealthOk: {
+            /** Build */
+            build: string;
             /** Cases */
             cases: string;
             /**

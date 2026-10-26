@@ -2,6 +2,8 @@ import path from "node:path";
 
 import { expect, test } from "@playwright/test";
 
+import { API } from "./api";
+
 const SAMPLE = process.env.E2E_SAMPLE_DIR ?? "";
 const FILES = [
   "questionnaire.pdf",
@@ -12,7 +14,6 @@ const FILES = [
   "passport-scan.png",
   "unreadable-photo.jpg",
 ];
-const API = "http://localhost:4700";
 
 test("upload → consistency check → review → sign-off, with real file effects", async ({ page, request }) => {
   test.setTimeout(120_000);

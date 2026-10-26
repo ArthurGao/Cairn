@@ -42,6 +42,7 @@ class Settings(BaseSettings):
         default=SecretStr(""), validation_alias="ANTHROPIC_API_KEY"
     )
     llmgw_base_url: str = ""  # the local LLM gateway, local dev and demos only (D-19)
+    llmgw_token: SecretStr = SecretStr("")  # its bearer token when it requires one (shared host)
     llm_vendor: str = ""
     roles_file: Path = Path("config/roles.toml")
     fake_scenario: Path | None = None
@@ -51,6 +52,7 @@ class Settings(BaseSettings):
     temporal_namespace: str = "default"
     task_queue: str = "cairn"
     cors_origin: str = "http://localhost:4710"
+    build_sha: str = ""  # the deployed commit, set by the image build; empty in local dev
 
     # Progressive disclosure and agent runs (design §4.2, §5, §6)
     l0_budget: int = 4000

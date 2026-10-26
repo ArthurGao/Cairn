@@ -582,6 +582,47 @@ async def test_llmgw_speaks_chat_completions_to_the_local_gateway() -> None:
     )
 
 
+async def test_llmgw_sends_its_token_on_calls_and_on_the_model_list(tmp_path: Path) -> None:
+    # On a shared host the gateway requires a bearer token (llmgw `local_token_env`), on every
+    # /v1 route, so the start-up listing must carry it too.
+    seen: Seen = []
+
+    def reply(request: httpx2.Request) -> httpx2.Response:
+        if request.url.host != "127.0.0.1":
+            return httpx2.Response(200, json=_listing())
+        if request.url.path.endswith("/models"):
+            return httpx2.Response(200, json={"data": [{"id": "claude-sub"}]})
+        return _openai_reply({"content": '{"ok": true}'})
+
+    http = _http(reply, seen)
+    vendor = LlmgwVendor(LLMGW, http, token="t0k-on-the-vm")
+    await vendor.complete(CLAUDE_SUB, _request(messages=[Message.user("hi")]))
+    roles = load_roles(Path(__file__).parents[2] / "config/roles.toml", {})
+    roles[Role.CASE_CHECK_ITEM] = CLAUDE_SUB
+    await validate_models(LlmClient(roles, {"gateway": GatewayVendor(KEY), "llmgw": vendor}), http)
+    local = [r for r in seen if r.url.host == "127.0.0.1"]
+    assert [(r.url.path, r.headers["authorization"]) for r in local] == [
+        ("/v1/chat/completions", "Bearer t0k-on-the-vm"),
+        ("/v1/models", "Bearer t0k-on-the-vm"),
+    ]
+    settings = make_settings(
+        tmp_path / "h",
+        tmp_path / "c",
+        AI_GATEWAY_API_KEY=KEY,
+        llmgw_base_url=LLMGW,
+        llmgw_token="t0k-on-the-vm",
+    )
+    built = build_client(
+        settings,
+        env={
+            "CAIRN_ROLE_CASE_CHECK_ITEM_VENDOR": "llmgw",
+            "CAIRN_ROLE_CASE_CHECK_ITEM_MODEL": "claude-sub",
+        },
+    ).vendors["llmgw"]
+    assert isinstance(built, LlmgwVendor)
+    assert built.token == "t0k-on-the-vm"
+
+
 async def test_llmgw_rate_limits_keep_their_retry_delay() -> None:
     reply = httpx2.Response(
         429,

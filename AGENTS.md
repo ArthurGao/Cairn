@@ -46,6 +46,7 @@ cairn/
   frontend/                   # Next.js 15 (App Router, TypeScript)                 -> frontend/AGENTS.md
   workspace/                  # sample harness home used in local dev (NOT by tests)
   .cases/                     # dev case store (gitignored; synthetic documents only)
+  deploy/oracle/              # demo VM: Compose stack, Caddyfile, deploy/smoke/rehearse scripts (D-22)
   Makefile                    # dev / check / test entry points
 ```
 
@@ -63,6 +64,8 @@ directly (it has its own `AGENTS.md` for the *runtime* agent). Never put repo in
 | `make test` | backend `pytest` + frontend `vitest` + Playwright (mocked API) |
 | `make e2e-full` | Playwright against the real stack with the `fake` LLM vendor |
 | `cd backend && uv run cairn lint --home ../workspace` | Lint a harness home (same code the cleanup workflow uses) |
+| `make rehearse` | The demo stack locally (same images, fake vendor) + smoke + full e2e through Caddy |
+| `DEMO_USER=… DEMO_PASSWORD=… deploy/oracle/deploy.sh ubuntu@<ip>` | Deploy committed HEAD to the demo VM and smoke it; private mode (owner-only, SSH tunnel) by default (design §16.1, `deploy/oracle/bootstrap.md`) |
 
 `make check` = `ruff check` + `ruff format --check` + `pyright` + `pytest` (backend) and
 `npm run lint` + `npm run typecheck` + `npm run test` + `npm run api:check` (frontend).

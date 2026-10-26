@@ -19,8 +19,10 @@ def _client(app: FastAPI) -> httpx.AsyncClient:
     return httpx.AsyncClient(transport=transport, base_url="http://test")
 
 
-async def _get_health(home: Path, cases_dir: Path, temporal_address: str) -> httpx.Response:
-    app = create_app(make_settings(home, cases_dir, temporal_address=temporal_address))
+async def _get_health(
+    home: Path, cases_dir: Path, temporal_address: str, **overrides: str
+) -> httpx.Response:
+    app = create_app(make_settings(home, cases_dir, temporal_address=temporal_address, **overrides))
     async with _client(app) as client:
         return await client.get("/api/health")
 
@@ -34,7 +36,21 @@ async def test_health_ok(home: Path, cases_dir: Path, temporal_env: WorkflowEnvi
         "temporal": "ok",
         "home": str(home),
         "cases": str(cases_dir),
+        "build": "",
     }
+
+
+async def test_health_names_the_deployed_build(
+    home: Path, cases_dir: Path, temporal_env: WorkflowEnvironment
+) -> None:
+    response = await _get_health(
+        home,
+        cases_dir,
+        _address(temporal_env),
+        build_sha="1d88ff5560128a72683ce07cd23879d70d95c218",
+    )
+    assert response.status_code == 200
+    assert response.json()["build"] == "1d88ff5560128a72683ce07cd23879d70d95c218"
 
 
 async def test_health_503_when_temporal_unreachable(home: Path, cases_dir: Path) -> None:

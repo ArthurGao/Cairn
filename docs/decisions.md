@@ -217,6 +217,10 @@ it to serve other people, or to process a client's documents, is outside its ter
 data-class gate (§10.4), so those limits are enforced in code rather than left to config. The role
 layer means no call site changes.
 
+**Amended (D-22).** "Local" means the owner's own machine, which may be their private VM: the
+gateway still binds that host's loopback and Cairn still refuses a non-loopback URL, and only the
+owner reaches it (SSH tunnel). Never shared, never public.
+
 **Consequences.** Results on a subscription channel can differ from the API (the Claude channel
 adds its own system prompt and ignores sampling settings), so a result that matters is re-run on
 an API vendor. `agent.main` and `document.transcribe` stay on `gateway` until the local gateway
@@ -258,3 +262,28 @@ what the adviser reviewed, at no extra model call.
 **Consequences.** The working-day count ignores public holidays (said in the UI); reminders and
 escalation wait for notifications and adviser identity (§17). A letter that cannot be read in
 full fails the check rather than producing a partial list.
+
+## D-22 — The demo runs on one free VM, private to its owner by default
+
+**Decision.** The standing demo is one Oracle Cloud Always Free VM (Arm, 2 OCPU / 12 GB) running
+the whole stack in Docker Compose behind Caddy, one origin for pages and API, one basic-auth
+credential, synthetic data only (§16.1). It has two modes. **Private** (default): only the owner
+uses it, through an SSH tunnel to the VM's loopback; no web port is open; the text roles run on
+the owner's subscription through the local LLM gateway on the same VM (D-19), with a bearer
+token; images and tools use a small, budget-capped gateway key. **Public**: other people use it;
+Caddy publishes TLS on 80/443 with per-IP rate limits and every role runs on a budget-capped
+gateway key. It is the builder's own account, not a client's or an employer's cloud.
+
+**Why.** The worker and the API share files through locks (D-01) and Temporal must stay up, so
+serverless hosts and platforms whose disks belong to one service do not fit; one VM does, and
+the free tier covers it. Same origin removes CORS and puts one gate in front of everything.
+Whether a subscription may serve the model calls depends on who triggers them, not on where the
+process runs: the owner alone, over a tunnel, is the same use as on their laptop; anyone else
+would be using a personal subscription, so the public mode never uses it. Loopback stops the
+network but not other processes on the host, hence the gateway token.
+
+**Consequences.** The VM holds the owner's subscription login, so it is hardened like a laptop
+(SSH keys only, port 22 to the owner's IP, automatic security updates) and the session is
+revoked if the VM may be compromised. Oracle may reclaim an idle Always Free instance; a redeploy
+rebuilds it from git and only demo data is lost. Client data still needs the `azure` vendor,
+consent and adviser auth (§17).

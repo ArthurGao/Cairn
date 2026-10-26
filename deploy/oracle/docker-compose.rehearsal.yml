@@ -1,0 +1,13 @@
+# Local rehearsal of the demo stack (rehearse.sh): the fixture home and the fake LLM vendor, so
+# the full e2e suite can run through Caddy without spending anything.
+services:
+  seed:
+    volumes:
+      - ../../backend/tests/fixtures/home:/seed:ro
+  api: &fake
+    environment:
+      CAIRN_LLM_VENDOR: fake
+      CAIRN_FAKE_SCENARIO: /fixtures/llm/aewv_sample.json:/fixtures/llm/agent_run.json:/fixtures/llm/cleanup.json
+    volumes:
+      - ../../backend/tests/fixtures/llm:/fixtures/llm:ro
+  worker: *fake

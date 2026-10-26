@@ -6,6 +6,7 @@ const OK_BODY = {
   temporal: "ok",
   home: "../workspace",
   cases: "../.cases",
+  build: "",
 };
 
 test("healthy API shows the badge and the synthetic-data banner", async ({ page }) => {

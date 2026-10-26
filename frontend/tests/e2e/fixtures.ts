@@ -14,6 +14,7 @@ export const health: S["HealthOk"] = {
   temporal: "ok",
   home: "../workspace",
   cases: "../.cases",
+  build: "",
 };
 
 export const manifest: S["Manifest"] = {

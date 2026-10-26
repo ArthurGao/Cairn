@@ -10,6 +10,7 @@ const OK_BODY = {
   temporal: "ok",
   home: "../workspace",
   cases: "../.cases",
+  build: "",
 } as const;
 
 describe("toHealthResult", () => {

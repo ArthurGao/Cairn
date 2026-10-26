@@ -80,5 +80,7 @@ def build_client(
     if "llmgw" in used:
         if not settings.llmgw_base_url:
             raise ConfigError("roles use the llmgw vendor but CAIRN_LLMGW_BASE_URL is not set")
-        vendors["llmgw"] = LlmgwVendor(settings.llmgw_base_url, http_client)
+        vendors["llmgw"] = LlmgwVendor(
+            settings.llmgw_base_url, http_client, settings.llmgw_token.get_secret_value()
+        )
     return LlmClient(roles, vendors)

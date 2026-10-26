@@ -36,6 +36,7 @@ class HealthOk(Model):
     temporal: Literal["ok"]
     home: str
     cases: str
+    build: str  # deployed commit; empty in local dev
 
 
 # --- cases (design §11) -----------------------------------------------------------------------

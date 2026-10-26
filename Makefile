@@ -1,5 +1,5 @@
 # Entry points (AGENTS.md "Commands"). Ports are fixed: API 4700, web 4710, Temporal 7233/8233.
-.PHONY: install dev dev-temporal temporal-up temporal-down dev-app dev-worker dev-api dev-web check check-backend check-frontend test e2e-full
+.PHONY: install dev dev-temporal temporal-up temporal-down dev-app dev-worker dev-api dev-web check check-backend check-frontend test e2e-full rehearse
 
 install:
 	cd backend && uv sync
@@ -55,3 +55,8 @@ test:
 # Real stack on the standard ports with the fake vendor; refuses if a port is taken.
 e2e-full:
 	./scripts/e2e_full.sh
+
+# The demo stack (deploy/oracle) locally in both modes: same images, fake vendor, smoke + full e2e.
+rehearse:
+	./deploy/oracle/rehearse.sh private
+	./deploy/oracle/rehearse.sh public

@@ -1,0 +1,16 @@
+# Private mode (design §16.1, D-22): the owner alone reaches the demo, through an SSH tunnel to
+# the VM's loopback; no port is open to the internet. Selected on the VM by
+# COMPOSE_FILE=docker-compose.yml:docker-compose.private.yml in .env (.env.private.example).
+services:
+  caddy:
+    ports: !override ["127.0.0.1:8080:80"]  # plain HTTP on loopback; the tunnel is the transport
+
+  temporal:
+    ports: !override ["127.0.0.1:7233:7233"]  # for the host-network worker
+
+  # Host networking so 127.0.0.1 is the VM itself: the worker reaches llm-gateway, which binds
+  # only the VM's loopback and refuses anything else (D-19), and Temporal published above.
+  worker:
+    network_mode: host
+    environment:
+      CAIRN_TEMPORAL_ADDRESS: 127.0.0.1:7233

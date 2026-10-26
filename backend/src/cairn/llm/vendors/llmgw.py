@@ -16,7 +16,7 @@ from cairn.llm.vendors.openai import OpenAIAdapter
 LOOPBACK = frozenset({"127.0.0.1", "localhost", "::1"})
 # What the gateway's v1 serves; tools and images are refused with 400 `unsupported_feature`.
 CAPABILITIES: frozenset[Capability] = frozenset({"structured-output"})
-# The gateway ignores the key; the SDK only needs a non-empty one.
+# Without a token the gateway ignores the key; the SDK only needs a non-empty one.
 PLACEHOLDER_KEY = "llmgw-local"
 
 
@@ -33,9 +33,13 @@ def loopback_url(base_url: str) -> str:
 class LlmgwVendor:
     name = "llmgw"
 
-    def __init__(self, base_url: str, http_client: httpx2.AsyncClient | None = None):
+    def __init__(
+        self, base_url: str, http_client: httpx2.AsyncClient | None = None, token: str = ""
+    ):
         self.base_url = loopback_url(base_url)
-        self.openai = OpenAIAdapter(self.name, PLACEHOLDER_KEY, self.base_url, http_client)
+        # A gateway with `local_token_env` set requires this bearer on every /v1 route.
+        self.token = token or PLACEHOLDER_KEY
+        self.openai = OpenAIAdapter(self.name, self.token, self.base_url, http_client)
 
     async def complete(self, config: RoleConfig, request: LlmRequest) -> LlmResult:
         return await self.openai.complete(config, request)

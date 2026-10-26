@@ -47,9 +47,11 @@ def llmgw_problems(roles: Mapping[Role, RoleConfig], profiles: set[str]) -> list
     return problems
 
 
-async def _listing(client: httpx2.AsyncClient, url: str, name: str) -> dict[str, set[str]]:
+async def _listing(
+    client: httpx2.AsyncClient, url: str, name: str, headers: dict[str, str]
+) -> dict[str, set[str]]:
     try:
-        response = await client.get(url)
+        response = await client.get(url, headers=headers)
         response.raise_for_status()
         return model_tags(response.json())
     except httpx2.HTTPError as exc:
@@ -58,17 +60,20 @@ async def _listing(client: httpx2.AsyncClient, url: str, name: str) -> dict[str,
 
 async def validate_models(llm: LlmClient, http: httpx2.AsyncClient | None = None) -> None:
     """Raise ConfigError listing every problem; a no-op when no role uses a listed vendor."""
-    listings: dict[str, str] = {}
+    listings: dict[str, tuple[str, dict[str, str]]] = {}
     if "gateway" in llm.vendors:
-        listings["gateway"] = MODELS_URL
+        listings["gateway"] = (MODELS_URL, {})
     if isinstance(local := llm.vendors.get("llmgw"), LlmgwVendor):
-        listings["llmgw"] = f"{local.base_url}/models"
+        listings["llmgw"] = (
+            f"{local.base_url}/models",
+            {"Authorization": f"Bearer {local.token}"},
+        )
     if not listings:
         return
     client = http or httpx2.AsyncClient(timeout=20)
     try:
         fetched = await asyncio.gather(
-            *(_listing(client, url, name) for name, url in listings.items())
+            *(_listing(client, url, name, headers) for name, (url, headers) in listings.items())
         )
     finally:
         if http is None:
