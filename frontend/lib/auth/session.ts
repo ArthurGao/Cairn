@@ -79,7 +79,9 @@ export function safeNext(next: string | null | undefined): string {
   if (!next || !next.startsWith("/") || /[\u0000-\u001f\\\\]/.test(next)) return "/cases";
   try {
     const url = new URL(next, HERE);
-    return url.origin === HERE ? url.pathname + url.search + url.hash : "/cases";
+    // A path that normalises to `//host` (e.g. `/.//host`) would be read as another site.
+    if (url.origin !== HERE || url.pathname.startsWith("//")) return "/cases";
+    return url.pathname + url.search + url.hash;
   } catch {
     return "/cases";
   }

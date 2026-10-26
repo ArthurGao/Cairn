@@ -73,6 +73,9 @@ describe("safeNext", () => {
     // Browsers drop tabs and newlines in URLs, so these would become //evil.example.
     expect(safeNext("/\t/evil.example")).toBe("/cases");
     expect(safeNext("/\n/evil.example")).toBe("/cases");
+    // Same origin until the dot segment is removed, which leaves the path //evil.example.
+    expect(safeNext("/.//evil.example")).toBe("/cases");
+    expect(safeNext("/cases/..//evil.example")).toBe("/cases");
     expect(safeNext("/cases?tab=checks#top")).toBe("/cases?tab=checks#top");
   });
 });
