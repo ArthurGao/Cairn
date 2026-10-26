@@ -22,6 +22,7 @@ from cairn.llm.types import (
     ToolResultPart,
     ToolUsePart,
 )
+from cairn.llm.vendors.messages import api_message
 from cairn.llm.vendors.rate_limit import rate_limited
 
 _STOP: dict[str, StopReason] = {
@@ -88,13 +89,14 @@ def classify(exc: Exception) -> LlmError:
         return rate_limited("anthropic", exc.response.headers, exc.message)
     if isinstance(exc, anthropic.APIStatusError):
         status = exc.status_code
+        message = api_message(exc.body, exc.message)
         if status >= 500:
-            return LlmError(f"anthropic: {status}: {exc.message}", retryable=True, code="server")
+            return LlmError(f"anthropic: {status}: {message}", retryable=True, code="server")
         if status == 402:
-            return LlmError(f"budget exhausted: {exc.message}", retryable=False, code="budget")
+            return LlmError(f"budget exhausted: {message}", retryable=False, code="budget")
         if "credit balance is too low" in exc.message:
-            return LlmError(f"anthropic: {exc.message}", retryable=False, code="no_credit")
-        return LlmError(f"anthropic: {status}: {exc.message}", retryable=False, code="rejected")
+            return LlmError(f"anthropic: {message}", retryable=False, code="no_credit")
+        return LlmError(f"anthropic: {status}: {message}", retryable=False, code="rejected")
     return LlmError(f"anthropic: {exc}", retryable=False, code="unexpected")
 
 

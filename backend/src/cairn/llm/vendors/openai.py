@@ -22,6 +22,7 @@ from cairn.llm.types import (
     ToolResultPart,
     ToolUsePart,
 )
+from cairn.llm.vendors.messages import api_message
 from cairn.llm.vendors.rate_limit import rate_limited
 
 _STOP: dict[str, StopReason] = {
@@ -114,11 +115,12 @@ def classify(exc: Exception) -> LlmError:
         return rate_limited("openai", exc.response.headers, exc.message)
     if isinstance(exc, openai.APIStatusError):
         status = exc.status_code
+        message = api_message(exc.body, exc.message)
         if status >= 500:
-            return LlmError(f"openai: {status}: {exc.message}", retryable=True, code="server")
+            return LlmError(f"openai: {status}: {message}", retryable=True, code="server")
         if status == 402:
-            return LlmError(f"budget exhausted: {exc.message}", retryable=False, code="budget")
-        return LlmError(f"openai: {status}: {exc.message}", retryable=False, code="rejected")
+            return LlmError(f"budget exhausted: {message}", retryable=False, code="budget")
+        return LlmError(f"openai: {status}: {message}", retryable=False, code="rejected")
     return LlmError(f"openai: {exc}", retryable=False, code="unexpected")
 
 

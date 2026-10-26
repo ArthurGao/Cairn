@@ -70,7 +70,9 @@ Copy the template from your Mac, then edit it on the VM:
 - `DEMO_USER`, `DEMO_PASSWORD_HASH='<hash>'` (keep the single quotes).
 - `CAIRN_LLMGW_TOKEN` — leave empty; step 4 fills it with the gateway's token.
 - `AI_GATEWAY_API_KEY` — a **dedicated** Vercel AI Gateway key with a small budget, for the two
-  roles llm-gateway cannot serve (`document.transcribe`: images; `agent.main`: tools).
+  roles llm-gateway cannot serve (`document.transcribe`: images; `agent.main`: tools). On the
+  gateway's free tier every `anthropic/*` model is refused (403), so uncomment the two
+  `openai/*` model lines in the template; a failed document then names the reason in one line.
 
 ```bash
 chmod 600 ~/cairn/.env

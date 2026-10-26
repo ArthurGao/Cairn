@@ -442,6 +442,36 @@ async def test_openai_error_classes(
     assert (info.value.code, info.value.retryable) == (code, retryable)
 
 
+FREE_TIER = "Free tier users do not have access to this model. Upgrade to paid credits."
+# The gateway's 403 for a model its free tier excludes (shape seen 2026-10-26): the message sits
+# among routing details the adviser does not need on a failed document.
+GATEWAY_403: dict[str, Any] = {
+    "error": {"message": FREE_TIER, "type": "no_providers_available", "statusCode": 403},
+    "providerMetadata": {"gateway": {"routing": {"attempts": [], "fallbacks": ["bedrock"]}}},
+}
+
+
+@pytest.mark.parametrize(
+    ("config", "prefix"), [(SONNET, "anthropic"), (GPT, "openai")], ids=["anthropic", "openai"]
+)
+async def test_a_rejection_keeps_only_the_vendors_own_message(
+    config: RoleConfig, prefix: str
+) -> None:
+    vendor = GatewayVendor(KEY, _http(_error(403, GATEWAY_403), []))
+    with pytest.raises(LlmError) as info:
+        await vendor.complete(config, _request())
+    assert str(info.value) == f"{prefix}: 403: {FREE_TIER}"
+    assert (info.value.code, info.value.retryable) == ("rejected", False)
+
+
+async def test_a_long_vendor_message_is_cut_short() -> None:
+    body = {"error": {"message": "x" * 1000}}
+    vendor = GatewayVendor(KEY, _http(_error(400, body), []))
+    with pytest.raises(LlmError) as info:
+        await vendor.complete(GPT, _request())
+    assert str(info.value) == "openai: 400: " + "x" * 299 + "…"
+
+
 GATEWAY_429 = "Rate limit exceeded for openai/gpt-5.2: 5 requests per minute. Retry after 29s."
 
 
