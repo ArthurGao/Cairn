@@ -1,0 +1,9 @@
+# Uploaded by `vercel deploy` (bootstrap.md, "Frontend on Vercel"): never local env files or build
+# output. tests/ stays: playwright.config.ts imports from it and the build typechecks it.
+.env
+.env.*
+.next
+.next-gate
+node_modules
+test-results
+playwright-report
