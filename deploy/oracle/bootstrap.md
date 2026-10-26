@@ -174,14 +174,19 @@ comment the block out, redeploy, `systemctl --user disable --now llmgw`, `claude
 
 The web app can run on Vercel, with the API on the VM (design §16.1, D-22 amendment).
 
-1. Project from `frontend/` (from the repo root, committed code):
-   `vercel link --cwd frontend --project cairn-demo`.
+1. Project from `frontend/` (from the repo root): `vercel link --cwd frontend --project cairn-demo`.
+   `vercel link` also connects the GitHub repository, so set the project's Root Directory to
+   `frontend` (Settings → Build and Deployment); with the default `.` every push fails with
+   "Couldn't find any `pages` or `app` directory".
 2. Production environment, values never typed on a command line (each reads stdin):
    `NEXT_PUBLIC_API_URL=https://<ip>.sslip.io`, `DEMO_USER`, `DEMO_PASSWORD` (the same pair whose
    hash Caddy checks), `SESSION_SECRET` (`openssl rand -hex 32`):
    `printf %s "$VALUE" | vercel env add NAME production --cwd frontend`.
-3. `vercel deploy --prod --cwd frontend`; note the production domain
-   (`https://cairn-demo….vercel.app`).
+3. Every push to `main` builds and promotes production from the pushed commit, including pushes
+   that change only the backend; the frontend can therefore go live before `deploy.sh` ships the
+   API it needs, so deploy the VM first when a change spans both. To rebuild without a push (after
+   an env change): `vercel redeploy <current production deployment url> --target production`.
+   Note the production domain (`https://cairn-demo….vercel.app`).
 4. On the VM, `CAIRN_CORS_ORIGIN=<that domain>` in `~/cairn/.env`, then `deploy.sh` again.
 5. Rotate the password: new value in Vercel (`vercel env rm` + `add`, redeploy) and its hash in
    `~/cairn/.env` (redeploy the VM). Preview deployments are not in CORS and cannot reach the API.

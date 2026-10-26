@@ -1,4 +1,4 @@
-# Uploaded by `vercel deploy` (bootstrap.md, "Frontend on Vercel"): never local env files or build
+# Left out of Vercel builds (bootstrap.md, "Frontend on Vercel"): never local env files or build
 # output. tests/ stays: playwright.config.ts imports from it and the build typechecks it.
 .env
 .env.*
