@@ -1,12 +1,14 @@
 # The demo stack on one VM (design §16.1, D-22). Only Caddy publishes ports; everything else is
 # reached by service name. Single replica on purpose: the worker and API share the harness home
 # and case store through file locks (D-01). Run by deploy.sh; secrets come from .env (never git).
+# Images are tagged with the release's commit (BUILD_SHA); release.sh also tags the deployed one
+# :current, so plain `docker compose` commands in ~/cairn/current use what is deployed.
 name: cairn-demo
 
 x-backend: &backend
-  image: cairn-backend:${BUILD_SHA:-local}
+  image: cairn-backend:${BUILD_SHA:-current}
   env_file: ${CAIRN_ENV_FILE:-.env}
-  environment:
+  environment: &backend-env
     CAIRN_HOME: /data/home
     CAIRN_CASES_DIR: /data/cases
     CAIRN_TEMPORAL_ADDRESS: temporal:7233
@@ -51,15 +53,27 @@ services:
     <<: *backend
     pull_policy: never
     command: [python, -m, cairn.worker]
+    environment:  # `<<` is shallow: repeat the shared env, then add the worker's own
+      <<: *backend-env
+      CAIRN_READY_FILE: /tmp/cairn-worker-ready
+    # Healthy once roles, vendors (llm-gateway in private mode) and Temporal checked out and it
+    # polls; `up --wait` and so a deploy fail on a worker that keeps restarting.
+    healthcheck:
+      test: [CMD, test, -f, /tmp/cairn-worker-ready]
+      interval: 10s
+      timeout: 3s
+      retries: 3
+      start_period: 120s
+      start_interval: 2s
 
   web:
     build: ../../frontend
-    image: cairn-web:${BUILD_SHA:-local}
+    image: cairn-web:${BUILD_SHA:-current}
     restart: unless-stopped
 
   caddy:
     build: ./caddy
-    image: cairn-caddy:local
+    image: cairn-caddy:${BUILD_SHA:-current}
     ports:
       - "80:80"
       - "443:443"

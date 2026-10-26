@@ -53,6 +53,7 @@ class Settings(BaseSettings):
     task_queue: str = "cairn"
     cors_origin: str = "http://localhost:4710"
     build_sha: str = ""  # the deployed commit, set by the image build; empty in local dev
+    ready_file: Path | None = None  # the worker writes it once it polls (demo healthcheck)
 
     # Progressive disclosure and agent runs (design §4.2, §5, §6)
     l0_budget: int = 4000
@@ -78,7 +79,7 @@ class Settings(BaseSettings):
     review_timeout: timedelta = timedelta(days=6)
     auto_apply_mechanical: bool = True
 
-    @field_validator("fake_scenario", mode="before")
+    @field_validator("fake_scenario", "ready_file", mode="before")
     @classmethod
     def _empty_is_unset(cls, value: object) -> object:
         return None if value == "" else value

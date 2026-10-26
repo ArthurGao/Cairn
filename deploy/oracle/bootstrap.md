@@ -89,15 +89,23 @@ into `~/cairn/.env`), and run it as a systemd user service on `127.0.0.1:8787`. 
 DEMO_USER=… DEMO_PASSWORD=… deploy/oracle/deploy.sh ubuntu@<ip>
 ```
 
-It copies `git archive HEAD` to `~/cairn/releases/<sha>`, builds the images on the VM, starts
-them, opens a tunnel and runs `smoke.sh` through it: the gate refuses anonymous and
-wrong-password requests, `/api/health` reports the deployed commit with Temporal ok and
-synthetic data, the cases page loads, and ports 80, 443, 4700, 4710, 7233, 8233, 8080 and 8787
-are all closed from outside. The worker only starts once llm-gateway answers with the
-`claude-sub` profile, so a running stack also means the gateway is reachable.
+It copies `git archive HEAD` to `~/cairn/releases/<sha>`, and that release's `release.sh` builds
+the images on the VM (tagged `<sha>`) and starts them, waiting until every service is healthy.
+The worker counts as healthy only once its roles, llm-gateway (the `claude-sub` profile) and
+Temporal checked out and it polls, so a worker that keeps restarting fails the deploy. Then it
+opens a tunnel and runs `smoke.sh` through it: the gate refuses anonymous and wrong-password
+requests, `/api/health` reports the deployed commit with Temporal ok and synthetic data, the
+cases page loads, and ports 80, 443, 4700, 4710, 7233, 8233, 8080 and 8787 are all closed from
+outside.
 
-Rehearse both modes locally first (fixture home, fake LLM vendor, full e2e through Caddy):
-`make rehearse`.
+If the new release does not start healthy or fails the smoke, `deploy.sh` starts the previous
+release's images again (the last three releases keep theirs) and exits non-zero. Only a
+release that passed becomes `~/cairn/current`; its images are also tagged `:current`, which is
+what plain `docker compose` commands there use.
+
+Rehearse locally first (fixture home, fake LLM vendor): `make rehearse` runs both modes with the
+full e2e suite through Caddy, and `deploy.sh` itself with a release whose smoke fails, which must
+roll back.
 
 ## Use it
 
@@ -119,7 +127,11 @@ journalctl --user -u llmgw -f
   `docker run --rm -p 127.0.0.1:8233:8233 --network cairn-demo_default alpine/socat
   tcp-listen:8233,fork,reuseaddr tcp:temporal:8233`, then `ssh -L 8233:127.0.0.1:8233 …`.
 - **Reset the demo data** (deletes every case, run and memory change; the sample home is
-  re-seeded on the next start): `docker compose down -v && docker compose up -d --wait`.
+  re-seeded on the next start): `docker compose down -v && docker compose up -d --wait`
+  (in `~/cairn/current/deploy/oracle`: the `:current` images, no build).
+- **Roll back by hand** to a kept release (the last three are in `~/cairn/releases`, each with
+  its images): `~/cairn/releases/<sha>/deploy/oracle/release.sh rollback <sha>`, then
+  `release.sh promote <sha>` once it is checked, so it becomes `current` again.
   No backups by design: the data is synthetic and regenerable (`test/make_demo_cases.py`).
 - **If the VM may be compromised:** sign the VM's Claude session out at claude.ai (account
   settings), rotate the AI Gateway key and `LLMGW_TOKEN`, then rebuild the VM.

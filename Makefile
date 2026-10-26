@@ -1,5 +1,5 @@
 # Entry points (AGENTS.md "Commands"). Ports are fixed: API 4700, web 4710, Temporal 7233/8233.
-.PHONY: install dev dev-temporal temporal-up temporal-down dev-app dev-worker dev-api dev-web check check-backend check-frontend test e2e-full rehearse
+.PHONY: install dev dev-temporal temporal-up temporal-down dev-app dev-worker dev-api dev-web check check-repo check-backend check-frontend test e2e-full rehearse
 
 install:
 	cd backend && uv sync
@@ -34,7 +34,12 @@ dev-web:
 	cd frontend && npm run dev
 
 # Every gate; must exit 0 before a task is called done.
-check: check-backend check-frontend
+check: check-repo check-backend check-frontend
+
+# Every *.example template must reach git: a fresh checkout is all the demo VM's setup has.
+check-repo:
+	@ignored="$$(git ls-files --others --ignored --exclude-standard -- '*.example')"; \
+	if [ -n "$$ignored" ]; then echo "git ignores these templates: $$ignored" >&2; exit 1; fi
 
 check-backend:
 	cd backend && uv run ruff check .
@@ -60,3 +65,4 @@ e2e-full:
 rehearse:
 	./deploy/oracle/rehearse.sh private
 	./deploy/oracle/rehearse.sh public
+	./deploy/oracle/rehearse.sh release

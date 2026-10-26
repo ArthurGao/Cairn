@@ -1139,7 +1139,13 @@ Where the demo runs is the builder's choice within these rules; the current one 
   `smoke.sh` (through a tunnel in private mode): anonymous and wrong-password requests get 401,
   `/api/health` reports the deployed commit (`build`, from `CAIRN_BUILD_SHA`), and every port
   that should be closed is closed from outside. `make rehearse` runs both modes locally with the
-  same images, the fake vendor and the full e2e suite through Caddy.
+  same images, the fake vendor and the full e2e suite through Caddy, and `deploy.sh` itself with
+  a release that fails its smoke.
+- **Only a release that passed replaces the last one.** Images are tagged with their commit; the
+  worker is healthy only once its startup validation passed and it polls (`CAIRN_READY_FILE`).
+  A release that does not start healthy or fails the smoke is replaced by the previous release's
+  images again; a passing one becomes `current` (images tagged `:current`). The last three
+  releases keep their images, so rolling back never needs a build on the small VM.
 
 ## 17. Open items (not blocking v1)
 

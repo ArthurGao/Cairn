@@ -47,3 +47,11 @@ def test_empty_fake_scenario_means_unset(tmp_path: Path, monkeypatch: pytest.Mon
     assert make_settings(tmp_path / "h", tmp_path / "c").fake_scenario is None
     monkeypatch.setenv("CAIRN_FAKE_SCENARIO", "s.json")
     assert make_settings(tmp_path / "h", tmp_path / "c").fake_scenario == Path("s.json")
+
+
+def test_empty_ready_file_means_unset(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    # .env.example lists CAIRN_READY_FILE= ; Path("") would be "." (the working directory).
+    monkeypatch.setenv("CAIRN_READY_FILE", "")
+    assert make_settings(tmp_path / "h", tmp_path / "c").ready_file is None
+    monkeypatch.setenv("CAIRN_READY_FILE", "/tmp/ready")
+    assert make_settings(tmp_path / "h", tmp_path / "c").ready_file == Path("/tmp/ready")

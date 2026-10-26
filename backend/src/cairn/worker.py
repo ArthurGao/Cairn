@@ -1,7 +1,9 @@
 """Temporal worker: registers workflows and activities (run: `uv run python -m cairn.worker`).
 
 Startup validation fails loudly instead of at the first call (design §10.3): role config,
-vendor availability and the data-class gate are checked before the worker polls.
+vendor availability and the data-class gate are checked before the worker polls. With
+`CAIRN_READY_FILE` set, the worker writes that file only once all of that passed and it is
+about to poll, so a container healthcheck can tell a working worker from a restarting one.
 """
 
 import asyncio
@@ -48,9 +50,11 @@ def build_worker(settings: Settings, temporal_client: Client, llm: LlmClient) ->
     )
 
 
-async def main() -> None:
+async def main(settings: Settings | None = None) -> None:
     logging.basicConfig(level=logging.INFO, format="%(asctime)s %(name)s %(message)s")
-    settings = Settings()
+    settings = settings or Settings()
+    if settings.ready_file:
+        settings.ready_file.unlink(missing_ok=True)  # a restarted container keeps its files
     llm = build_client(settings)
     validate_startup(settings, llm)
     await validate_models(llm)
@@ -58,7 +62,10 @@ async def main() -> None:
     client = await temporal.connect(settings)
     log.info("cleanup schedule %s", await ensure_schedule(client, settings))
     log.info("worker polling %s on %s", settings.task_queue, settings.temporal_address)
-    await build_worker(settings, client, llm).run()
+    polling = build_worker(settings, client, llm)
+    if settings.ready_file:
+        settings.ready_file.write_text(settings.task_queue)
+    await polling.run()
 
 
 if __name__ == "__main__":
