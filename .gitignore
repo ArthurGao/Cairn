@@ -28,6 +28,7 @@ htmlcov/
 node_modules/
 .next/
 .next-gate/
+.vercel/
 out/
 next-env.d.ts
 *.tsbuildinfo
