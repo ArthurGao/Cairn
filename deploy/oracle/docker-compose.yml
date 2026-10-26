@@ -82,6 +82,7 @@ services:
       CAIRN_HOST: ${CAIRN_HOST}
       DEMO_USER: ${DEMO_USER}
       DEMO_PASSWORD_HASH: ${DEMO_PASSWORD_HASH}
+      CAIRN_CORS_ORIGIN: ${CAIRN_CORS_ORIGIN:-https://cors.invalid}
     volumes:
       - ./Caddyfile:/etc/caddy/Caddyfile:ro
       - caddy-data:/data

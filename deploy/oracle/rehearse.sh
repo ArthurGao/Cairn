@@ -14,7 +14,10 @@ HERE="$(cd "$(dirname "$0")" && pwd)"
 ROOT="$(cd "$HERE/../.." && pwd)"
 PROJECT="cairn-rehearsal-$MODE"
 case "$MODE" in
-  public) PORTS=(80 443) CAIRN_HOST=localhost BASE=https://localhost OVERLAY=() ;;
+  public)
+    PORTS=(80 443) CAIRN_HOST=localhost BASE=https://localhost OVERLAY=()
+    export CORS_ORIGIN=https://cairn-rehearsal.vercel.app  # as if the frontend were on Vercel
+    ;;
   private | release)
     PORTS=(8080 7233) CAIRN_HOST=:80 BASE=http://localhost:8080
     OVERLAY=(docker-compose.private.yml)
@@ -57,6 +60,7 @@ CAIRN_HOST=$CAIRN_HOST
 DEMO_USER=$DEMO_USER
 DEMO_PASSWORD_HASH='$HASH'
 CAIRN_DATA_CLASS=synthetic
+CAIRN_CORS_ORIGIN=${CORS_ORIGIN:-}
 ENV
 
 if [[ "$MODE" == release ]]; then

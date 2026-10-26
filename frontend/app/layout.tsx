@@ -1,9 +1,9 @@
 import type { Metadata } from "next";
 import { IBM_Plex_Mono, IBM_Plex_Sans } from "next/font/google";
-import Link from "next/link";
 import type { ReactNode } from "react";
 
-import { HealthBadge } from "@/components/HealthBadge";
+import { SiteHeader } from "@/components/SiteHeader";
+import { gateFrom } from "@/lib/auth/session";
 
 import "./globals.css";
 import { Providers } from "./providers";
@@ -21,38 +21,7 @@ export default function RootLayout({ children }: { children: ReactNode }) {
     <html lang="en" className={`${sans.variable} ${mono.variable}`}>
       <body>
         <Providers>
-          <header className="border-b border-ink">
-            <div className="mx-auto grid max-w-[1200px] grid-cols-12 items-start gap-6 px-6 py-4">
-              <div className="col-span-6 flex items-baseline gap-8">
-                <Link href="/cases" className="text-lg font-semibold tracking-tight">
-                  Cairn
-                </Link>
-                <nav aria-label="Main" className="flex gap-6 text-sm">
-                  <Link href="/cases" className="hover:underline">
-                    Cases
-                  </Link>
-                  <span className="text-muted" aria-hidden>
-                    |
-                  </span>
-                  <span className="sr-only">Manage:</span>
-                  {[
-                    ["/manage/runs", "Runs"],
-                    ["/manage/context", "Context"],
-                    ["/manage/memory", "Memory"],
-                    ["/manage/skills", "Skills"],
-                    ["/manage/cleanup", "Cleanup"],
-                  ].map(([href, label]) => (
-                    <Link key={href} href={href} className="text-muted hover:text-ink hover:underline">
-                      {label}
-                    </Link>
-                  ))}
-                </nav>
-              </div>
-              <div className="col-span-6 flex justify-end">
-                <HealthBadge />
-              </div>
-            </div>
-          </header>
+          <SiteHeader signOut={gateFrom(process.env).kind === "on"} />
           <main className="mx-auto max-w-[1200px] px-6 py-8">{children}</main>
         </Providers>
       </body>

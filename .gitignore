@@ -27,6 +27,7 @@ htmlcov/
 # Node / Next.js
 node_modules/
 .next/
+.next-gate/
 out/
 next-env.d.ts
 *.tsbuildinfo

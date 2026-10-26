@@ -14,6 +14,7 @@ state · `openapi-typescript` + `openapi-fetch` for the typed API client · vite
 frontend/
   app/
     layout.tsx  page.tsx            # / : redirect to /cases; header health badge + data-class banner
+    login/page.tsx  auth/login|logout/route.ts   # demo sign-in gate (design §16.1)
     cases/page.tsx                  # case list
     cases/[id]/page.tsx             # upload, documents and pages, start checks, check history
     cases/[id]/checks/[checkId]/page.tsx   # coverage, findings, citation viewer, review, sign-off
@@ -33,7 +34,7 @@ npm install
 npm run dev            # next dev -p 4710
 npm run lint           # eslint . (flat config; not `next lint`, deprecated since Next 15.5)
 npm run typecheck      # tsc --noEmit
-npm run test           # vitest + playwright (mocked API)
+npm run test           # vitest + playwright (mocked API) + the sign-in gate suite (port 4711)
 npm run e2e:full       # playwright against the real stack (make dev, fake vendor)
 npm run api:gen        # regenerate lib/api/schema.d.ts from the backend's OpenAPI export (no server)
 npm run api:check      # regenerate from backend (python export, no server) and fail on diff
@@ -59,6 +60,10 @@ in `../backend` and compares the output.
 - Destructive or state-changing actions (dismiss, sign-off, Undo, Approve, Reject) use
   `ConfirmDialog`; never `window.alert/confirm/prompt`. Dismiss requires a note.
 - Show the `data_class` banner ("Synthetic data only") on every page while it is `synthetic`.
+- The demo sign-in gate (`middleware.ts`, `lib/auth/`) is on only when `DEMO_USER`,
+  `DEMO_PASSWORD` and `SESSION_SECRET` are set; on Vercel a missing one returns 503 for every page
+  (fail closed). Locally none is set. Never expose them as `NEXT_PUBLIC_*`; the API credential is
+  kept in `sessionStorage` only.
 - Diffs (`OpDiff`) are line-based, computed in `lib/diff.ts`, unit-tested with exact output.
 - Accessible by default: buttons are `<button>`, inputs have labels, focus is visible; the upload
   area works with the keyboard and a file input, not only drag and drop.

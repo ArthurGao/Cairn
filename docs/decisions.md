@@ -287,3 +287,15 @@ network but not other processes on the host, hence the gateway token.
 revoked if the VM may be compromised. Oracle may reclaim an idle Always Free instance; a redeploy
 rebuilds it from git and only demo data is lost. Client data still needs the `azure` vendor,
 consent and adviser auth (§17).
+
+**Amended 2026-10-26: the public demo's frontend runs on Vercel.** The owner chose a public demo
+other people use, with the web app on Vercel and the API on the VM. Pages sit behind a sign-in
+page whose one credential lives in the Vercel project's environment (signed, HttpOnly session
+cookie; a missing variable closes the site rather than opening it). The browser sends the same
+credential to the API as basic auth, which Caddy checks. The API allows exactly the Vercel
+production origin by CORS; Caddy lets that origin's preflights past the gate and names it on the
+401s it writes, so CORS rules live in one place. The browser talks to the VM
+directly, so uploads never pass through Vercel's request limits. Being public, the VM gives up
+the subscription entirely: llm-gateway is stopped and the Claude login removed; every role runs
+on the gateway key, whose balance and team budget cap the spend. Why one credential and not real
+accounts: adviser auth is still §17; this keeps the demo closed to passers-by until then.

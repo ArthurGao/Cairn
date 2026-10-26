@@ -72,6 +72,9 @@ smoke() {
     base=http://localhost:18080 probe=("$PROBE" 80 443 "${INTERNAL[@]}")
   else
     base="https://$HOST" probe=("$PROBE" "${INTERNAL[@]}")
+    # The Vercel-hosted frontend's origin, if this public stack serves one.
+    CORS_ORIGIN="$(remote "sed -n 's/^CAIRN_CORS_ORIGIN=//p' $CAIRN/.env")"
+    export CORS_ORIGIN
   fi
   "$SMOKE" "$base" "$SHA" ${probe[@]+"${probe[@]}"}  # bash 3.2: an empty array under set -u
 }

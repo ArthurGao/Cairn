@@ -152,4 +152,23 @@ llm-gateway), behind Caddy with TLS on `<ip>.sslip.io`, basic auth and per-IP ra
   ```
 - `~/cairn/.env` from `deploy/oracle/.env.example` (no `COMPOSE_FILE`, no llm-gateway lines,
   `CAIRN_HOST=<ip>.sslip.io`, a key with a budget sized for other people's use).
-- `deploy.sh` then smokes `https://<ip>.sslip.io` and requires the internal ports closed.
+- The VM gives up the subscription: `systemctl --user disable --now llmgw` and
+  `~/.local/bin/claude auth logout`.
+- `deploy.sh` then smokes `https://<ip>.sslip.io` and requires the internal ports closed; with
+  `CAIRN_CORS_ORIGIN` set it also checks CORS (that origin only; its preflights pass the gate).
+
+### Frontend on Vercel
+
+The web app can run on Vercel, with the API on the VM (design §16.1, D-22 amendment).
+
+1. Project from `frontend/` (from the repo root, committed code):
+   `vercel link --cwd frontend --project cairn-demo`.
+2. Production environment, values never typed on a command line (each reads stdin):
+   `NEXT_PUBLIC_API_URL=https://<ip>.sslip.io`, `DEMO_USER`, `DEMO_PASSWORD` (the same pair whose
+   hash Caddy checks), `SESSION_SECRET` (`openssl rand -hex 32`):
+   `printf %s "$VALUE" | vercel env add NAME production --cwd frontend`.
+3. `vercel deploy --prod --cwd frontend`; note the production domain
+   (`https://cairn-demo….vercel.app`).
+4. On the VM, `CAIRN_CORS_ORIGIN=<that domain>` in `~/cairn/.env`, then `deploy.sh` again.
+5. Rotate the password: new value in Vercel (`vercel env rm` + `add`, redeploy) and its hash in
+   `~/cairn/.env` (redeploy the VM). Preview deployments are not in CORS and cannot reach the API.

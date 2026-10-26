@@ -1128,7 +1128,12 @@ Where the demo runs is the builder's choice within these rules; the current one 
     budget-capped gateway key. Selected by `COMPOSE_FILE=…:docker-compose.private.yml` in the
     VM's `.env`.
   - *Public*: other people use it. Caddy publishes 80/443 with automatic TLS; every role runs on
-    the gateway key, never the local gateway.
+    the gateway key, never the local gateway, and the VM holds no subscription login. The web app
+    may run on Vercel instead of the VM (D-22 amendment): its pages need a session from its
+    sign-in page (`DEMO_USER`, `DEMO_PASSWORD`, `SESSION_SECRET` in the Vercel environment; on
+    Vercel a missing one closes the site), the browser sends the same credential to the API as
+    basic auth, and the API allows exactly that origin by CORS (`CAIRN_CORS_ORIGIN`); Caddy lets
+    that origin's preflights past the gate and names it on its own 401s. Uploads go from the browser to the VM, never through Vercel.
 - **A gate before anything else.** Until advisers authenticate (§17), one basic-auth credential
   covers pages and API in both modes, and Caddy rate-limits per IP, strictly on the POSTs that
   start model calls (checks, agent runs, cleanup).

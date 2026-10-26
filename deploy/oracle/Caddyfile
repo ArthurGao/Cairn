@@ -1,5 +1,9 @@
 # The demo's only entry point (design §16.1, D-22): TLS, one basic-auth gate for pages and API,
-# per-IP rate limits, then /api/* to the API and everything else to the web app.
+# per-IP rate limits, then /api/* to the API and everything else to the web app. A frontend on
+# another origin (Vercel, public mode) may call the API from exactly {$CAIRN_CORS_ORIGIN}: the API
+# owns CORS (FastAPI reads the same CAIRN_CORS_ORIGIN); Caddy only lets that origin's preflights
+# past the gate and names the origin on the 401s it writes itself, so the page can read them.
+# Compose defaults the origin to https://cors.invalid, which no browser sends.
 {
 	order rate_limit before basic_auth
 }
@@ -13,6 +17,16 @@
 		Referrer-Policy no-referrer
 		X-Frame-Options DENY
 		-Server
+	}
+
+	@cors {
+		path /api/*
+		header Origin {$CAIRN_CORS_ORIGIN}
+	}
+	@gated not {
+		method OPTIONS
+		path /api/*
+		header Origin {$CAIRN_CORS_ORIGIN}
 	}
 
 	rate_limit {
@@ -33,7 +47,7 @@
 		}
 	}
 
-	basic_auth {
+	basic_auth @gated {
 		{$DEMO_USER} {$DEMO_PASSWORD_HASH}
 	}
 
@@ -43,6 +57,13 @@
 
 	handle /api/* {
 		reverse_proxy api:4700
+	}
+	# The gate's own 401 never reaches the API, so it names the allowed origin here (and only here:
+	# the API's answers carry their own CORS headers, and a second copy would void them).
+	handle_errors 401 {
+		header @cors Access-Control-Allow-Origin {$CAIRN_CORS_ORIGIN}
+		header @cors Vary Origin
+		respond 401
 	}
 	handle {
 		reverse_proxy web:4710
