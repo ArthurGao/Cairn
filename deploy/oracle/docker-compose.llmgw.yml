@@ -1,0 +1,14 @@
+# The worker on the VM's own network, so model calls can run on the owner's subscription through
+# llm-gateway on the VM (design §16.1, D-19, D-22). Only while the owner alone triggers model
+# calls: private mode, or a public URL whose sign-in credential nobody else has. Selected by
+# COMPOSE_FILE in .env (.env.private.example, or the owner-only block in .env.example).
+services:
+  temporal:
+    ports: !override ["127.0.0.1:7233:7233"]  # for the host-network worker
+
+  # Host networking so 127.0.0.1 is the VM itself: the worker reaches llm-gateway, which binds
+  # only the VM's loopback and refuses anything else (D-19), and Temporal published above.
+  worker:
+    network_mode: host
+    environment:
+      CAIRN_TEMPORAL_ADDRESS: 127.0.0.1:7233

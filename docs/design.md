@@ -1125,15 +1125,21 @@ Where the demo runs is the builder's choice within these rules; the current one 
     local LLM gateway on the same VM (D-19): the worker uses host networking so `127.0.0.1:8787`
     is the VM itself, and the gateway requires a bearer token (`CAIRN_LLMGW_TOKEN`) because
     loopback does not stop other processes on the host. Images and tools stay on a small,
-    budget-capped gateway key. Selected by `COMPOSE_FILE=…:docker-compose.private.yml` in the
-    VM's `.env`.
+    budget-capped gateway key. Selected by
+    `COMPOSE_FILE=…:docker-compose.llmgw.yml:docker-compose.private.yml` in the VM's `.env`.
   - *Public*: other people use it. Caddy publishes 80/443 with automatic TLS; every role runs on
     the gateway key, never the local gateway, and the VM holds no subscription login. The web app
     may run on Vercel instead of the VM (D-22 amendment): its pages need a session from its
     sign-in page (`DEMO_USER`, `DEMO_PASSWORD`, `SESSION_SECRET` in the Vercel environment; on
     Vercel a missing one closes the site), the browser sends the same credential to the API as
     basic auth, and the API allows exactly that origin by CORS (`CAIRN_CORS_ORIGIN`); Caddy lets
-    that origin's preflights past the gate and names it on its own 401s. Uploads go from the browser to the VM, never through Vercel.
+    that origin's preflights past the gate and names it on its own 401s. Uploads go from the
+    browser to the VM, never through Vercel.
+  - *Owner-only public*: the public URL (and Vercel frontend) while nobody but the owner has the
+    sign-in credential. Then, as in private mode, the text roles may run on the owner's
+    subscription through llm-gateway (`docker-compose.llmgw.yml` puts the worker on the VM's
+    network); before the credential is shared, the stack goes back to gateway-only roles and the
+    VM's Claude login is removed.
 - **A gate before anything else.** Until advisers authenticate (§17), one basic-auth credential
   covers pages and API in both modes, and Caddy rate-limits per IP, strictly on the POSTs that
   start model calls (checks, agent runs, cleanup).

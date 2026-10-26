@@ -65,7 +65,8 @@ docker run --rm -it caddy:2.10.2 caddy hash-password   # prompts; the password s
 Copy the template from your Mac, then edit it on the VM:
 `scp deploy/oracle/.env.private.example ubuntu@<ip>:~/cairn/.env`.
 
-- `COMPOSE_FILE=docker-compose.yml:docker-compose.private.yml` selects private mode.
+- `COMPOSE_FILE=docker-compose.yml:docker-compose.llmgw.yml:docker-compose.private.yml` selects
+  private mode (the worker on the VM's network for llm-gateway, Caddy on loopback only).
 - `DEMO_USER`, `DEMO_PASSWORD_HASH='<hash>'` (keep the single quotes).
 - `CAIRN_LLMGW_TOKEN` — leave empty; step 4 fills it with the gateway's token.
 - `AI_GATEWAY_API_KEY` — a **dedicated** Vercel AI Gateway key with a small budget, for the two
@@ -152,10 +153,20 @@ llm-gateway), behind Caddy with TLS on `<ip>.sslip.io`, basic auth and per-IP ra
   ```
 - `~/cairn/.env` from `deploy/oracle/.env.example` (no `COMPOSE_FILE`, no llm-gateway lines,
   `CAIRN_HOST=<ip>.sslip.io`, a key with a budget sized for other people's use).
-- The VM gives up the subscription: `systemctl --user disable --now llmgw` and
-  `~/.local/bin/claude auth logout`.
+- The VM gives up the subscription when others use it: `systemctl --user disable --now llmgw`
+  and `~/.local/bin/claude auth logout` (or see "Owner-only public" below).
 - `deploy.sh` then smokes `https://<ip>.sslip.io` and requires the internal ports closed; with
   `CAIRN_CORS_ORIGIN` set it also checks CORS (that origin only; its preflights pass the gate).
+
+### Owner-only public: the public URL on your subscription
+
+Only while **nobody but you** has the sign-in credential (D-22 amendment): demos by screen share.
+Keep llm-gateway and the Claude login on the VM (step 4), and uncomment the owner-only block at
+the end of `.env.example` in `~/cairn/.env` (`COMPOSE_FILE=docker-compose.yml:docker-compose.llmgw.yml`
+plus the llm-gateway lines; the token is the one in `~/.config/llmgw/env`). The VM is then
+internet-facing *and* holds your Claude login: keep SSH to your IP and updates on, and sign the
+session out at claude.ai if the VM may be compromised. Before anyone else gets the credential:
+comment the block out, redeploy, `systemctl --user disable --now llmgw`, `claude auth logout`.
 
 ### Frontend on Vercel
 

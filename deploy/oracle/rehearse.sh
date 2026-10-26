@@ -20,7 +20,7 @@ case "$MODE" in
     ;;
   private | release)
     PORTS=(8080 7233) CAIRN_HOST=:80 BASE=http://localhost:8080
-    OVERLAY=(docker-compose.private.yml)
+    OVERLAY=(docker-compose.llmgw.yml docker-compose.private.yml)
     ;;
   *) echo "usage: $0 [public|private|release]" >&2; exit 2 ;;
 esac

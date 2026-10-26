@@ -299,3 +299,11 @@ directly, so uploads never pass through Vercel's request limits. Being public, t
 the subscription entirely: llm-gateway is stopped and the Claude login removed; every role runs
 on the gateway key, whose balance and team budget cap the spend. Why one credential and not real
 accounts: adviser auth is still §17; this keeps the demo closed to passers-by until then.
+
+**Amended 2026-10-26 (2): owner-only public.** The owner keeps the public URL but alone holds the
+sign-in credential (demos by screen share), so the subscription may serve the text roles again,
+through llm-gateway on the VM: the rule is still who triggers model calls. The worker-on-host-
+network part of private mode became its own overlay (`docker-compose.llmgw.yml`) so it combines
+with Caddy on 443. The cost: an internet-facing VM now holds the owner's Claude login, so a
+compromise means signing that session out; and sharing the credential is not allowed until the
+stack is back on gateway-only roles with the login removed.
