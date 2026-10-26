@@ -53,11 +53,28 @@ test("the right password opens the app, and every API call carries the credentia
   expect(new Set(seen.map((r) => r.headers()["authorization"]))).toEqual(new Set([BASIC]));
 });
 
+// A production build prefetches the header's /cases link on /login before there is a session, and
+// the router caches the middleware's redirect back to /login. A client-side navigation after
+// signing in reuses that entry, so the first click appears to do nothing; a document load does not.
+test("signing in loads the next page as a new document, not from the router cache", async ({ page }) => {
+  await mockApi(page);
+  await page.goto("/login?next=%2Fcases");
+  const documents: string[] = [];
+  page.on("request", (r) => {
+    if (r.isNavigationRequest() && r.resourceType() === "document") documents.push(new URL(r.url()).pathname);
+  });
+  await signIn(page, GATE.user, GATE.password);
+  await expect(page).toHaveURL("/cases");
+  expect(documents).toEqual(["/cases"]);
+});
+
 test("signing out ends the session", async ({ page }) => {
   await mockApi(page);
   await page.goto("/login");
   await signIn(page, GATE.user, GATE.password);
   await expect(page).toHaveURL("/cases");
+  // Signing in loads /cases as a new document; wait until it is hydrated before clicking.
+  await expect(page.getByTestId("health-badge")).toHaveText("API healthy");
   await page.getByRole("button", { name: "Sign out" }).click();
   await expect(page).toHaveURL("/login");
   await page.goto("/manage/runs");

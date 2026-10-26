@@ -1,7 +1,7 @@
 "use client";
 
 import { useMutation } from "@tanstack/react-query";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useSearchParams } from "next/navigation";
 import { type FormEvent, Suspense, useState } from "react";
 
 import { unwrap, errorMessage } from "@/lib/api/fetch";
@@ -9,7 +9,6 @@ import { rememberCredential } from "@/lib/auth/credential";
 import { safeNext } from "@/lib/auth/session";
 
 function LoginForm() {
-  const router = useRouter();
   const next = safeNext(useSearchParams().get("next"));
   const [user, setUser] = useState("");
   const [password, setPassword] = useState("");
@@ -25,7 +24,9 @@ function LoginForm() {
     },
     onSuccess: () => {
       rememberCredential(user, password);
-      router.replace(next);
+      // A document load, not router.replace: while signed out, the router cached the redirect to
+      // /login for every link it prefetched here (the header's /cases), and would reuse it.
+      window.location.replace(next);
     },
   });
 
