@@ -858,7 +858,7 @@ Follows the role-layer rule: call sites name a role; config maps role → vendor
 | --- | --- | --- | --- |
 | `gateway` | Vercel AI Gateway: Claude (`anthropic/*`) and GPT (`openai/*`) models | `AI_GATEWAY_API_KEY` | the gateway's `provider/model` id, exactly as `GET https://ai-gateway.vercel.sh/v1/models` lists it (`anthropic/claude-sonnet-5.5` — a dot, not `claude-sonnet-5-5`) |
 | `anthropic` | Anthropic API directly | `ANTHROPIC_API_KEY` | Anthropic's id (`claude-sonnet-5-5`) |
-| `llmgw` | the local LLM gateway (`~/Code/AI/llm-gateway`) on the developer's own ChatGPT/Claude subscription — **local dev and demos only** (D-19) | none (`CAIRN_LLMGW_BASE_URL`, loopback only; `CAIRN_LLMGW_TOKEN` when the gateway requires one) | a gateway profile name (`claude-sub`, `gpt-sub`), from `GET <url>/models` |
+| `llmgw` | the local LLM gateway (`~/Code/AI/lite-ai/llm-gateway`) on the developer's own ChatGPT/Claude subscription — **local dev and demos only** (D-19) | none (`CAIRN_LLMGW_BASE_URL`, loopback only; `CAIRN_LLMGW_TOKEN` when the gateway requires one) | a gateway profile name (`claude-sub`, `gpt-sub`), from `GET <url>/models` |
 | `fake` | nothing: replays `tests/fixtures/llm/<scenario>.json` (`CAIRN_FAKE_SCENARIO`; several files colon-separated, read in order) | — | any |
 | `azure` | **reserved, not built in v1**: the path for client data once Azure Australia processing is verified (§10.4) | — | — |
 

@@ -204,7 +204,7 @@ host, or a deployment with its own storage), at which point all of them can be c
 ## D-19 — The local LLM gateway is a dev and demo vendor, never production
 
 **Decision.** A vendor `llmgw` sends roles to the developer's local LLM gateway
-(`~/Code/AI/llm-gateway`), which answers OpenAI Chat Completions on their own ChatGPT or Claude
+(`~/Code/AI/lite-ai/llm-gateway`), which answers OpenAI Chat Completions on their own ChatGPT or Claude
 subscription. It is switched on by env only (`CAIRN_LLMGW_BASE_URL` plus per-role
 `…_VENDOR=llmgw` / `…_MODEL=<profile>`); `roles.toml` never names it. Code refuses a non-loopback
 URL and refuses `llmgw` with client data whatever `CAIRN_CLIENT_DATA_VENDORS` says. Startup

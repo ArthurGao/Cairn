@@ -1,4 +1,4 @@
-"""The local LLM gateway (`~/Code/AI/llm-gateway`): local dev and demos only, never prod (D-19).
+"""The local LLM gateway (`~/Code/AI/lite-ai/llm-gateway`): local dev and demos only, never prod (D-19).
 
 It serves OpenAI Chat Completions on a loopback address and answers on the user's own ChatGPT or
 Claude subscription; the role's `model` is one of its profile names. Code, not config, keeps it
